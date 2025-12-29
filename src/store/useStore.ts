@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Category, Transaction, TransactionItem, Account, Debt, RecurringPayment } from '../types';
 import * as repo from '../db/repo';
 import { initDB } from '../db/db';
+import * as auth from '../utils/auth';
 
 interface AppState {
   categories: Category[];
@@ -13,6 +14,11 @@ interface AppState {
   isLoading: boolean;
   currency: string;
   
+  // Auth State
+  isLocked: boolean;
+  hasPin: boolean;
+  isBiometricEnabled: boolean;
+
   // Actions
   init: () => Promise<void>;
   refreshData: () => void;
@@ -29,6 +35,11 @@ interface AppState {
   addAccount: (name: string, type: string, balance: number, color: string, icon: string) => void;
   updateAccount: (id: number, name: string, type: string, balance: number, color: string, icon: string) => void;
   deleteAccount: (id: number) => void;
+
+  // Auth Actions
+  setLocked: (locked: boolean) => void;
+  checkAuth: () => Promise<void>;
+  updateAuthSettings: () => Promise<void>;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -40,6 +51,11 @@ export const useStore = create<AppState>((set, get) => ({
   balance: { totalIncome: 0, totalExpense: 0, balance: 0 },
   isLoading: true,
   currency: '৳', // Default to BDT
+
+  // Auth State Defaults
+  isLocked: false, // Will be updated in init
+  hasPin: false,
+  isBiometricEnabled: false,
 
   init: async () => {
     try {
@@ -53,6 +69,10 @@ export const useStore = create<AppState>((set, get) => ({
         // Save default if not exists
         repo.setSetting('currency', '৳');
       }
+
+      // Check Auth
+      await get().checkAuth();
+
       get().refreshData();
     } catch (error) {
       console.error('Failed to init store:', error);
@@ -60,6 +80,20 @@ export const useStore = create<AppState>((set, get) => ({
       set({ isLoading: false });
     }
   },
+
+  checkAuth: async () => {
+    const hasPin = await auth.hasPin();
+    const isBiometricEnabled = await auth.isBiometricEnabled();
+    set({ hasPin, isBiometricEnabled, isLocked: hasPin });
+  },
+
+  updateAuthSettings: async () => {
+      const hasPin = await auth.hasPin();
+      const isBiometricEnabled = await auth.isBiometricEnabled();
+      set({ hasPin, isBiometricEnabled });
+  },
+
+  setLocked: (locked: boolean) => set({ isLocked: locked }),
 
   refreshData: () => {
     const categories = repo.getCategories();

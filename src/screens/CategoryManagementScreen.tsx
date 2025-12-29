@@ -32,7 +32,7 @@ export const CategoryManagementScreen = () => {
         setName(cat.name);
         setType(cat.type);
         setColor(cat.color);
-        setIcon(cat.icon);
+        setIcon(cat.icon || 'tag');
         setVisible(true);
     };
     

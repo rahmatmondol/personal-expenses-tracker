@@ -84,7 +84,7 @@ export const DashboardScreen = () => {
              </View>
              
              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                 <Surface style={[styles.dashboardCard, { flex: 1, marginRight: 8, backgroundColor: '#E3F2FD' }]} elevation={1}>
+                 <Surface style={[{ flex: 1, marginRight: 8, backgroundColor: '#E3F2FD' }]} elevation={1}>
                     <TouchableOpacity onPress={() => navigation.navigate('RecurringBills' as never)} style={{ padding: 16 }}>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                             <Avatar.Icon size={32} icon="calendar-clock" style={{ backgroundColor: '#2196F3' }} color="white" />
@@ -97,7 +97,7 @@ export const DashboardScreen = () => {
                     </TouchableOpacity>
                  </Surface>
 
-                 <Surface style={[styles.dashboardCard, { flex: 1, marginLeft: 8, backgroundColor: '#FFEBEE' }]} elevation={1}>
+                 <Surface style={[{ flex: 1, marginLeft: 8, backgroundColor: '#FFEBEE' }]} elevation={1}>
                     <TouchableOpacity onPress={() => navigation.navigate('Debts' as never)} style={{ padding: 16 }}>
                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                             <Avatar.Icon size={32} icon="handshake" style={{ backgroundColor: '#F44336' }} color="white" />

@@ -1,17 +1,25 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
-import { List, Button, Divider, Text, TextInput, Portal, Dialog, RadioButton, Chip } from 'react-native-paper';
+import { List, Button, Divider, Text, TextInput, Portal, Dialog, RadioButton, Chip, Switch } from 'react-native-paper';
 import * as DocumentPicker from 'expo-document-picker';
-import { exportDataToJSON, importDataFromJSON } from '../db/backup';
+import { exportDataToJSON, importDataFromJSON, exportDataToCSV } from '../db/backup';
 import { resetDatabase } from '../db/repo';
 import { useStore } from '../store/useStore';
+import * as auth from '../utils/auth';
 import { useNavigation } from '@react-navigation/native';
 
 export const SettingsScreen = () => {
-  const { refreshData, currency, setCurrency } = useStore();
+  const { refreshData, currency, setCurrency, hasPin, isBiometricEnabled, updateAuthSettings } = useStore();
   const navigation = useNavigation();
   const [currencyDialogVisible, setCurrencyDialogVisible] = useState(false);
   const [tempCurrency, setTempCurrency] = useState(currency);
+
+  // Auth State
+  const [pinDialogVisible, setPinDialogVisible] = useState(false);
+  const [pinStep, setPinStep] = useState<'create' | 'confirm' | 'enter_old' | 'enter_new' | 'remove'>('create');
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [tempPin, setTempPin] = useState('');
 
   // Backup/Restore State
   const [passwordDialogVisible, setPasswordDialogVisible] = useState(false);
@@ -28,6 +36,91 @@ export const SettingsScreen = () => {
   const handleCurrencySave = () => {
       setCurrency(tempCurrency);
       hideCurrencyDialog();
+  };
+
+  const handleSetPinPress = () => {
+      setPinStep('create');
+      setPinInput('');
+      setPinError('');
+      setTempPin('');
+      setPinDialogVisible(true);
+  };
+
+  const handleChangePinPress = () => {
+      setPinStep('enter_old');
+      setPinInput('');
+      setPinError('');
+      setTempPin('');
+      setPinDialogVisible(true);
+  };
+
+  const handleRemovePinPress = () => {
+      setPinStep('remove');
+      setPinInput('');
+      setPinError('');
+      setPinDialogVisible(true);
+  };
+
+  const handleBiometricToggle = async () => {
+      if (isBiometricEnabled) {
+          await auth.disableBiometric();
+      } else {
+          const success = await auth.authenticateBiometric();
+          if (success) {
+              await auth.enableBiometric();
+          } else {
+              Alert.alert('Error', 'Biometric authentication failed');
+              return;
+          }
+      }
+      updateAuthSettings();
+  };
+
+  const handlePinSubmit = async () => {
+      if (pinInput.length !== 4) {
+          setPinError('PIN must be 4 digits');
+          return;
+      }
+
+      if (pinStep === 'create') {
+          setTempPin(pinInput);
+          setPinStep('confirm');
+          setPinInput('');
+          setPinError('');
+      } else if (pinStep === 'confirm') {
+          if (pinInput === tempPin) {
+              await auth.setPin(pinInput);
+              await updateAuthSettings();
+              setPinDialogVisible(false);
+              Alert.alert('Success', 'PIN set successfully');
+          } else {
+              setPinError('PINs do not match');
+          }
+      } else if (pinStep === 'enter_old') {
+          const isValid = await auth.checkPin(pinInput);
+          if (isValid) {
+              setPinStep('enter_new');
+              setPinInput('');
+              setPinError('');
+          } else {
+              setPinError('Incorrect PIN');
+          }
+      } else if (pinStep === 'enter_new') {
+          setTempPin(pinInput);
+          setPinStep('confirm');
+          setPinInput('');
+          setPinError('');
+      } else if (pinStep === 'remove') {
+          const isValid = await auth.checkPin(pinInput);
+          if (isValid) {
+              await auth.deletePin();
+              await updateAuthSettings();
+              setPinDialogVisible(false);
+              Alert.alert('Success', 'PIN removed successfully');
+          } else {
+              setPinError('Incorrect PIN');
+          }
+      }
   };
 
   const handleExportPress = () => {
@@ -134,6 +227,42 @@ export const SettingsScreen = () => {
       <Divider />
 
       <List.Section>
+        <List.Subheader>Security</List.Subheader>
+        {!hasPin ? (
+            <List.Item
+                title="Set PIN"
+                description="Secure app with a 4-digit PIN"
+                left={props => <List.Icon {...props} icon="lock-plus" />}
+                onPress={handleSetPinPress}
+            />
+        ) : (
+            <>
+                <List.Item
+                    title="Change PIN"
+                    description="Update your current PIN"
+                    left={props => <List.Icon {...props} icon="lock-reset" />}
+                    onPress={handleChangePinPress}
+                />
+                <List.Item
+                    title="Biometric Unlock"
+                    description="Use Fingerprint/FaceID to unlock"
+                    left={props => <List.Icon {...props} icon="fingerprint" />}
+                    right={() => <Switch value={isBiometricEnabled} onValueChange={handleBiometricToggle} />}
+                />
+                <List.Item
+                    title="Remove PIN"
+                    description="Disable app security"
+                    left={props => <List.Icon {...props} icon="lock-remove" color="red" />}
+                    onPress={handleRemovePinPress}
+                    titleStyle={{ color: 'red' }}
+                />
+            </>
+        )}
+      </List.Section>
+
+      <Divider />
+
+      <List.Section>
         <List.Subheader>Data Management</List.Subheader>
         
         <List.Item
@@ -170,6 +299,44 @@ export const SettingsScreen = () => {
             left={props => <List.Icon {...props} icon="information" />}
         />
       </List.Section>
+
+      {/* PIN Dialog */}
+      <Portal>
+        <Dialog visible={pinDialogVisible} onDismiss={() => setPinDialogVisible(false)}>
+            <Dialog.Title>
+                {pinStep === 'create' ? 'Set PIN' : 
+                 pinStep === 'confirm' ? 'Confirm PIN' :
+                 pinStep === 'enter_old' || pinStep === 'remove' ? 'Enter Current PIN' :
+                 pinStep === 'enter_new' ? 'Enter New PIN' : 'Confirm New PIN'}
+            </Dialog.Title>
+            <Dialog.Content>
+                <TextInput
+                    label="PIN"
+                    value={pinInput}
+                    onChangeText={(text) => {
+                        // Only allow numbers and max 4 digits
+                        if (/^\d*$/.test(text) && text.length <= 4) {
+                            setPinInput(text);
+                            setPinError('');
+                        }
+                    }}
+                    mode="outlined"
+                    keyboardType="numeric"
+                    secureTextEntry
+                    maxLength={4}
+                    autoFocus
+                    error={!!pinError}
+                />
+                {pinError ? <Text style={{ color: 'red', marginTop: 5 }}>{pinError}</Text> : null}
+            </Dialog.Content>
+            <Dialog.Actions>
+                <Button onPress={() => setPinDialogVisible(false)}>Cancel</Button>
+                <Button onPress={handlePinSubmit}>
+                    {pinStep === 'remove' ? 'Remove' : 'Next'}
+                </Button>
+            </Dialog.Actions>
+        </Dialog>
+      </Portal>
 
       {/* Currency Dialog */}
       <Portal>
