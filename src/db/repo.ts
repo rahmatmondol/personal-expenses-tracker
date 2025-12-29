@@ -325,3 +325,59 @@ export const updateRecurringPaymentNextDate = (id: number, next_due_date: number
 export const deleteRecurringPayment = (id: number): void => {
     db.runSync('DELETE FROM recurring_payments WHERE id = ?', [id]);
 };
+
+// --- System ---
+export const resetDatabase = (): void => {
+    db.withTransactionSync(() => {
+        db.runSync('DELETE FROM transaction_items');
+        db.runSync('DELETE FROM transaction_allocations');
+        db.runSync('DELETE FROM transactions');
+        db.runSync('DELETE FROM recurring_payments');
+        db.runSync('DELETE FROM debts');
+        db.runSync('DELETE FROM categories');
+        db.runSync('DELETE FROM accounts');
+        db.runSync('DELETE FROM settings');
+    });
+};
+
+// --- Reports ---
+export const getItemConsumptionReport = (startDate: number, endDate: number) => {
+    return db.getAllSync<{name: string, unit: string, totalQuantity: number, totalSpent: number}>(`
+        SELECT 
+            ti.name, 
+            ti.unit, 
+            SUM(ti.quantity) as totalQuantity, 
+            SUM(ti.quantity * ti.pricePerUnit) as totalSpent
+        FROM transaction_items ti
+        JOIN transactions t ON ti.transactionId = t.id
+        WHERE t.date BETWEEN ? AND ?
+        GROUP BY ti.name, ti.unit
+        ORDER BY totalSpent DESC
+    `, [startDate, endDate]);
+};
+
+export const getDailyTrend = (startDate: number, endDate: number) => {
+    return db.getAllSync<{day: string, expense: number}>(`
+        SELECT 
+            strftime('%d', date / 1000, 'unixepoch', 'localtime') as day,
+            SUM(t.amount) as expense
+        FROM transactions t
+        JOIN categories c ON t.categoryId = c.id
+        WHERE c.type = 'expense' AND t.date BETWEEN ? AND ?
+        GROUP BY day
+        ORDER BY day ASC
+    `, [startDate, endDate]);
+};
+
+export const getMonthlyTrendByRange = (startDate: number, endDate: number) => {
+    return db.getAllSync<{month: string, expense: number}>(`
+        SELECT 
+            strftime('%Y-%m', date / 1000, 'unixepoch', 'localtime') as month,
+            SUM(t.amount) as expense
+        FROM transactions t
+        JOIN categories c ON t.categoryId = c.id
+        WHERE c.type = 'expense' AND t.date BETWEEN ? AND ?
+        GROUP BY month
+        ORDER BY month ASC
+    `, [startDate, endDate]);
+};

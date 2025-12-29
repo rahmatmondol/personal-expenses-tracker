@@ -6,6 +6,50 @@ import { db } from './db';
 
 const DB_NAME = 'finance.db';
 
+export const exportDataToCSV = async () => {
+    try {
+        const transactions = db.getAllSync(`
+            SELECT 
+                t.date, 
+                t.amount, 
+                c.type as type, 
+                c.name as category, 
+                a.name as account, 
+                t.note 
+            FROM transactions t
+            LEFT JOIN categories c ON t.categoryId = c.id
+            LEFT JOIN accounts a ON t.accountId = a.id
+            ORDER BY t.date DESC
+        `);
+
+        let csv = 'Date,Amount,Type,Category,Account,Note\n';
+        transactions.forEach((t: any) => {
+            const row = [
+                new Date(t.date).toISOString().split('T')[0],
+                t.amount,
+                t.type,
+                `"${t.category || ''}"`,
+                `"${t.account || ''}"`,
+                `"${(t.note || '').replace(/"/g, '""')}"`
+            ].join(',');
+            csv += row + '\n';
+        });
+
+        const fileUri = FileSystem.documentDirectory + 'transactions.csv';
+        await FileSystem.writeAsStringAsync(fileUri, csv);
+
+        if (await Sharing.isAvailableAsync()) {
+            await Sharing.shareAsync(fileUri);
+        } else {
+            alert('Sharing is not available');
+        }
+        return true;
+    } catch (error) {
+        console.error('CSV Export failed:', error);
+        return false;
+    }
+};
+
 export const exportDataToJSON = async (password: string) => {
   try {
     // 1. Get all data from DB

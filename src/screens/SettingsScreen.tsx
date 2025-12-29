@@ -3,6 +3,7 @@ import { View, StyleSheet, Alert } from 'react-native';
 import { List, Button, Divider, Text, TextInput, Portal, Dialog, RadioButton, Chip } from 'react-native-paper';
 import * as DocumentPicker from 'expo-document-picker';
 import { exportDataToJSON, importDataFromJSON } from '../db/backup';
+import { resetDatabase } from '../db/repo';
 import { useStore } from '../store/useStore';
 import { useNavigation } from '@react-navigation/native';
 
@@ -36,26 +37,34 @@ export const SettingsScreen = () => {
   };
 
   const handleImportPress = async () => {
-      try {
-          const result = await DocumentPicker.getDocumentAsync({
-              copyToCacheDirectory: true
-          });
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                copyToCacheDirectory: true
+            });
 
-          if (result.canceled) return;
+            if (result.canceled) return;
 
-          // Check extension (optional, but good UX)
-          // if (!result.assets[0].name.endsWith('.enc')) { ... }
+            // Check extension (optional, but good UX)
+            // if (!result.assets[0].name.endsWith('.enc')) { ... }
 
-          setSelectedFileUri(result.assets[0].uri);
-          setBackupMode('import');
-          setPassword('');
-          setPasswordDialogVisible(true);
-      } catch (err) {
-          Alert.alert('Error', 'Failed to pick file');
-      }
-  };
+            setSelectedFileUri(result.assets[0].uri);
+            setBackupMode('import');
+            setPassword('');
+            setPasswordDialogVisible(true);
+        } catch (err) {
+            Alert.alert('Error', 'Failed to pick file');
+        }
+    };
 
-  const executeBackupAction = async () => {
+    const handleCSVExport = async () => {
+        try {
+            await exportDataToCSV();
+        } catch (error) {
+            Alert.alert('Error', 'Failed to export CSV');
+        }
+    };
+
+    const executeBackupAction = async () => {
       if (!password) {
           Alert.alert('Error', 'Password is required');
           return;
@@ -85,6 +94,25 @@ export const SettingsScreen = () => {
       }
   };
 
+    const handleResetPress = () => {
+        Alert.alert(
+            'Reset App',
+            'Are you sure you want to delete ALL data? This action cannot be undone.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { 
+                    text: 'Delete', 
+                    style: 'destructive', 
+                    onPress: () => {
+                        resetDatabase();
+                        refreshData();
+                        Alert.alert('Success', 'App has been reset to factory settings.');
+                    }
+                }
+            ]
+        );
+    };
+
   return (
     <View style={styles.container}>
       <List.Section>
@@ -109,17 +137,26 @@ export const SettingsScreen = () => {
         <List.Subheader>Data Management</List.Subheader>
         
         <List.Item
-            title="Backup Data"
+            title="Export Backup (JSON)"
             description="Encrypt and export data to file"
-            left={props => <List.Icon {...props} icon="lock-outline" />}
+            left={props => <List.Icon {...props} icon="database-export" />}
             onPress={handleExportPress}
         />
         
         <List.Item
-            title="Restore Data"
+            title="Import Backup (JSON)"
             description="Import and decrypt data from file"
-            left={props => <List.Icon {...props} icon="lock-open-outline" />}
+            left={props => <List.Icon {...props} icon="database-import" />}
             onPress={handleImportPress}
+        />
+
+        
+        <List.Item
+            title="Reset App"
+            description="Delete all data and reset to factory settings"
+            left={props => <List.Icon {...props} icon="delete-forever" color="red" />}
+            onPress={handleResetPress}
+            titleStyle={{ color: 'red' }}
         />
       </List.Section>
 
