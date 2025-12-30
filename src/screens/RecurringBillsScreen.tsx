@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, Alert, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text, TextInput, Button, Card, useTheme, Appbar, FAB, Chip, Avatar, Surface, Portal, Modal } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { formatAmount } from '../utils/formatting';
 import { RecurringPayment, Category, Account } from '../types';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as repo from '../db/repo';
+import { colors } from '../utils/colors';
 
 export const RecurringBillsScreen = () => {
     const theme = useTheme();
@@ -130,72 +131,101 @@ export const RecurringBillsScreen = () => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <Appbar.Header style={{ backgroundColor: 'white', elevation: 0 }}>
+        <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
+            <Appbar.Header style={{ backgroundColor: colors.background, elevation: 0 }}>
                 <Appbar.BackAction onPress={() => navigation.goBack()} />
-                <Appbar.Content title="Monthly Bills" titleStyle={{ fontWeight: 'bold' }} />
+                <Appbar.Content title="Monthly Bills" titleStyle={{ fontWeight: 'bold', color: colors.textPrimary }} />
             </Appbar.Header>
 
             {isAdding ? (
                 <View style={styles.formContainer}>
-                    <ScrollView contentContainerStyle={styles.formScroll}>
-                        <Text variant="headlineSmall" style={styles.formTitle}>Add New Bill</Text>
-                        
-                        <TextInput
-                            label="Amount"
-                            value={amount}
-                            onChangeText={setAmount}
-                            keyboardType="numeric"
-                            mode="outlined"
-                            left={<TextInput.Affix text={currency} />}
-                            style={styles.input}
-                        />
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        style={{ flex: 1 }}
+                    >
+                        <ScrollView contentContainerStyle={styles.formScroll} keyboardShouldPersistTaps="handled">
+                            <Text variant="headlineSmall" style={styles.formTitle}>Add New Bill</Text>
+                            
+                            {/* Amount Input */}
+                            <Surface style={styles.amountCard} elevation={1}>
+                                <Text variant="titleSmall" style={{ color: theme.colors.secondary }}>Amount</Text>
+                                <View style={styles.amountInputContainer}>
+                                    <Text variant="headlineLarge" style={{ color: colors.primary, fontWeight: 'bold' }}>{currency}</Text>
+                                    <TextInput
+                                        value={amount}
+                                        onChangeText={setAmount}
+                                        keyboardType="numeric"
+                                        style={styles.amountInput}
+                                        placeholder="0"
+                                        placeholderTextColor={colors.outline}
+                                        contentStyle={{ fontSize: 40, fontWeight: 'bold', color: colors.primary }}
+                                        underlineColor="transparent"
+                                        activeUnderlineColor="transparent"
+                                    />
+                                </View>
+                            </Surface>
 
-                        <Text variant="titleMedium" style={{ marginTop: 10, marginBottom: 8, fontWeight: 'bold' }}>Category</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-                            {categories.map(cat => (
-                                <Chip 
-                                    key={cat.id} 
-                                    selected={selectedCategory === cat.id} 
-                                    onPress={() => setSelectedCategory(cat.id)}
-                                    style={{ marginRight: 8, backgroundColor: selectedCategory === cat.id ? '#E3F2FD' : '#f0f0f0' }}
-                                    icon={cat.icon}
-                                    showSelectedOverlay
-                                >
-                                    {cat.name}
-                                </Chip>
-                            ))}
+                            {/* Category Selection */}
+                            <View style={styles.section}>
+                                <Text variant="titleMedium" style={styles.sectionTitle}>Category</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 4 }}>
+                                    {categories.map(cat => (
+                                        <Chip 
+                                            key={cat.id} 
+                                            selected={selectedCategory === cat.id} 
+                                            onPress={() => setSelectedCategory(cat.id)}
+                                            style={{ marginRight: 8, backgroundColor: selectedCategory === cat.id ? colors.primary + '20' : 'white', borderColor: selectedCategory === cat.id ? colors.primary : 'transparent', borderWidth: 1 }}
+                                            textStyle={{ color: selectedCategory === cat.id ? colors.primary : colors.textPrimary }}
+                                            icon={cat.icon}
+                                            showSelectedOverlay
+                                        >
+                                            {cat.name}
+                                        </Chip>
+                                    ))}
+                                </ScrollView>
+                            </View>
+
+                            {/* Due Day */}
+                            <View style={styles.section}>
+                                <Text variant="titleMedium" style={styles.sectionTitle}>Due Day of Month</Text>
+                                <TextInput
+                                    label="Day (1-31)"
+                                    value={dueDay}
+                                    onChangeText={setDueDay}
+                                    keyboardType="numeric"
+                                    mode="outlined"
+                                    maxLength={2}
+                                    style={styles.input}
+                                    right={<TextInput.Icon icon="calendar" />}
+                                    theme={{ colors: { primary: colors.primary } }}
+                                />
+                            </View>
+
+                            {/* Note */}
+                            <View style={styles.section}>
+                                <Text variant="titleMedium" style={styles.sectionTitle}>Note</Text>
+                                <TextInput
+                                    label="Description (Optional)"
+                                    value={description}
+                                    onChangeText={setDescription}
+                                    mode="outlined"
+                                    multiline
+                                    style={styles.input}
+                                    theme={{ colors: { primary: colors.primary } }}
+                                />
+                            </View>
                         </ScrollView>
+                    </KeyboardAvoidingView>
 
-                        <TextInput
-                            label="Due Day of Month (e.g. 5)"
-                            value={dueDay}
-                            onChangeText={setDueDay}
-                            keyboardType="numeric"
-                            mode="outlined"
-                            maxLength={2}
-                            style={styles.input}
-                            right={<TextInput.Icon icon="calendar" />}
-                        />
-
-                        <TextInput
-                            label="Note (Optional)"
-                            value={description}
-                            onChangeText={setDescription}
-                            mode="outlined"
-                            multiline
-                            style={styles.input}
-                        />
-                    </ScrollView>
                     <View style={styles.footerButtons}>
-                        <Button mode="outlined" onPress={() => setIsAdding(false)} style={styles.cancelBtn}>Cancel</Button>
-                        <Button mode="contained" onPress={handleSave} style={styles.saveBtn}>Save Bill</Button>
+                        <Button mode="outlined" onPress={() => setIsAdding(false)} style={styles.cancelBtn} contentStyle={{ height: 48 }}>Cancel</Button>
+                        <Button mode="contained" onPress={handleSave} style={styles.saveBtn} contentStyle={{ height: 48 }} buttonColor={colors.primary}>Save Bill</Button>
                     </View>
                 </View>
             ) : (
                 <View style={{ flex: 1 }}>
                      {/* Summary Header */}
-                     <Surface style={styles.headerSummary} elevation={1}>
+                     <Surface style={styles.headerSummary} elevation={2}>
                          <View>
                             <Text variant="titleMedium" style={{color: 'white', opacity: 0.9}}>Total Monthly</Text>
                             <Text variant="displaySmall" style={{color: 'white', fontWeight: 'bold'}}>
@@ -206,7 +236,7 @@ export const RecurringBillsScreen = () => {
                      </Surface>
 
                     <ScrollView contentContainerStyle={styles.list}>
-                        <Text variant="titleMedium" style={{ marginBottom: 10, fontWeight: 'bold', paddingHorizontal: 4 }}>Upcoming</Text>
+                        <Text variant="titleMedium" style={{ marginBottom: 10, fontWeight: 'bold', paddingHorizontal: 4, color: colors.textPrimary }}>Upcoming Bills</Text>
                         
                         {bills
                             .sort((a, b) => a.next_due_date - b.next_due_date)
@@ -215,37 +245,41 @@ export const RecurringBillsScreen = () => {
                                 const isUrgent = daysLeft <= 3;
                                 
                                 return (
-                                    <Card key={bill.id} style={styles.card} elevation={1}>
+                                    <Card key={bill.id} style={styles.card} elevation={0}>
                                         <View style={styles.cardInner}>
                                             <View style={[styles.dateBox, { backgroundColor: isUrgent ? '#FFEBEE' : '#E3F2FD' }]}>
                                                 <Text variant="titleLarge" style={{ fontWeight: 'bold', color: isUrgent ? '#D32F2F' : '#1976D2' }}>
                                                     {bill.due_day}
                                                 </Text>
-                                                <Text variant="labelSmall" style={{ color: isUrgent ? '#D32F2F' : '#1976D2' }}>TH</Text>
+                                                <Text variant="labelSmall" style={{ color: isUrgent ? '#D32F2F' : '#1976D2', fontWeight: 'bold' }}>DAY</Text>
                                             </View>
                                             
                                             <View style={styles.cardContent}>
                                                 <View style={styles.rowBetween}>
-                                                    <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>{bill.categoryName}</Text>
-                                                    <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>
+                                                    <View>
+                                                        <Text variant="titleMedium" style={{ fontWeight: 'bold', color: colors.textPrimary }}>{bill.categoryName}</Text>
+                                                        {bill.description ? <Text variant="bodySmall" style={{ color: colors.textSecondary }}>{bill.description}</Text> : null}
+                                                    </View>
+                                                    <Text variant="titleLarge" style={{ fontWeight: 'bold', color: colors.textPrimary }}>
                                                         {currency}{formatAmount(bill.amount)}
                                                     </Text>
                                                 </View>
                                                 
-                                                <View style={styles.rowBetween}>
+                                                <View style={[styles.rowBetween, { marginTop: 8 }]}>
                                                      <Chip 
                                                         icon="clock-outline" 
-                                                        style={{ backgroundColor: isUrgent ? '#FFEBEE' : '#F5F5F5', height: 28, marginTop: 4 }}
-                                                        textStyle={{ fontSize: 12, color: isUrgent ? '#D32F2F' : 'gray' }}
+                                                        style={{ backgroundColor: isUrgent ? '#FFEBEE' : '#F5F5F5', height: 28 }}
+                                                        textStyle={{ fontSize: 12, color: isUrgent ? '#D32F2F' : 'gray', lineHeight: 18 }}
+                                                        compact
                                                      >
                                                         {daysLeft < 0 ? 'Overdue' : daysLeft === 0 ? 'Due Today' : `${daysLeft} days left`}
                                                      </Chip>
                                                      <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                                                        <Button mode="text" compact onPress={() => handlePayPress(bill)} style={{marginRight: 8}}>
+                                                        <Button mode="contained-tonal" compact onPress={() => handlePayPress(bill)} style={{marginRight: 8}} buttonColor={colors.primary + '20'} textColor={colors.primary}>
                                                             Pay
                                                         </Button>
                                                         <TouchableOpacity onPress={() => handleDelete(bill.id)}>
-                                                            <Avatar.Icon size={24} icon="delete-outline" style={{backgroundColor: 'transparent'}} color="gray" />
+                                                            <Avatar.Icon size={24} icon="delete-outline" style={{backgroundColor: 'transparent'}} color={colors.textSecondary} />
                                                         </TouchableOpacity>
                                                      </View>
                                                 </View>
@@ -257,8 +291,8 @@ export const RecurringBillsScreen = () => {
 
                         {bills.length === 0 && (
                              <View style={{ padding: 40, alignItems: 'center' }}>
-                                 <Avatar.Icon size={64} icon="calendar-blank-outline" style={{backgroundColor: '#f0f0f0'}} color="gray" />
-                                 <Text style={{marginTop: 10, color: 'gray'}}>No recurring bills set up.</Text>
+                                 <Avatar.Icon size={64} icon="calendar-blank-outline" style={{backgroundColor: '#fff'}} color={colors.outline} />
+                                 <Text style={{marginTop: 10, color: colors.textSecondary}}>No recurring bills set up.</Text>
                              </View>
                         )}
                     </ScrollView>
@@ -266,7 +300,8 @@ export const RecurringBillsScreen = () => {
                     <FAB
                         icon="plus"
                         label="Add Bill"
-                        style={styles.fab}
+                        style={[styles.fab, { backgroundColor: colors.primary }]}
+                        color="white"
                         onPress={() => setIsAdding(true)}
                     />
                 </View>
@@ -274,33 +309,35 @@ export const RecurringBillsScreen = () => {
 
             <Portal>
                 <Modal visible={isPayModalVisible} onDismiss={() => setIsPayModalVisible(false)} contentContainerStyle={styles.modalContainer}>
-                    <Text variant="headlineSmall" style={{ marginBottom: 16, fontWeight: 'bold' }}>Pay Bill</Text>
+                    <Text variant="headlineSmall" style={{ marginBottom: 16, fontWeight: 'bold', color: colors.textPrimary }}>Pay Bill</Text>
                     
                     {selectedBill && (
-                        <View style={{ marginBottom: 20 }}>
-                            <Text variant="titleMedium">{selectedBill.description}</Text>
-                            <Text variant="displaySmall" style={{ color: theme.colors.primary, fontWeight: 'bold', marginVertical: 8 }}>
+                        <View style={{ marginBottom: 20, alignItems: 'center', backgroundColor: colors.background, padding: 16, borderRadius: 12 }}>
+                            <Text variant="titleMedium" style={{ color: colors.textSecondary }}>{selectedBill.categoryName}</Text>
+                            <Text variant="displayMedium" style={{ color: colors.primary, fontWeight: 'bold', marginVertical: 8 }}>
                                 {currency}{formatAmount(selectedBill.amount)}
                             </Text>
+                            <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>Due: {new Date(selectedBill.next_due_date).toLocaleDateString()}</Text>
                         </View>
                     )}
 
-                    <Text variant="titleMedium" style={{ marginBottom: 10 }}>Select Account</Text>
+                    <Text variant="titleMedium" style={{ marginBottom: 10, fontWeight: 'bold' }}>Pay from Account</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
                         {accounts.map(acc => (
                             <Chip
                                 key={acc.id}
                                 selected={selectedAccount === acc.id}
                                 onPress={() => setSelectedAccount(acc.id)}
-                                style={{ marginRight: 8, backgroundColor: selectedAccount === acc.id ? '#E3F2FD' : '#f0f0f0' }}
+                                style={{ marginRight: 8, backgroundColor: selectedAccount === acc.id ? colors.primary + '20' : '#f0f0f0' }}
                                 showSelectedOverlay
+                                textStyle={{ color: selectedAccount === acc.id ? colors.primary : colors.textPrimary }}
                             >
                                 {acc.name} ({currency}{formatAmount(acc.balance)})
                             </Chip>
                         ))}
                     </ScrollView>
 
-                    <Button mode="contained" onPress={confirmPayment} style={{ marginTop: 10 }}>
+                    <Button mode="contained" onPress={confirmPayment} style={{ marginTop: 10, borderRadius: 25 }} contentStyle={{ height: 48 }} buttonColor={colors.primary}>
                         Confirm Payment
                     </Button>
                 </Modal>
@@ -310,22 +347,30 @@ export const RecurringBillsScreen = () => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F5F7FA' },
-    formContainer: { flex: 1, backgroundColor: 'white' },
-    formScroll: { padding: 20 },
-    formTitle: { fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
-    input: { marginBottom: 16, backgroundColor: 'white' },
-    footerButtons: { padding: 16, flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#eee' },
-    cancelBtn: { flex: 1, marginRight: 8 },
-    saveBtn: { flex: 1 },
+    container: { flex: 1, backgroundColor: colors.background },
+    formContainer: { flex: 1, backgroundColor: colors.white },
+    formScroll: { paddingBottom: 20 },
+    formTitle: { fontWeight: 'bold', margin: 20, textAlign: 'center', color: colors.textPrimary },
     
-    headerSummary: { margin: 16, padding: 20, borderRadius: 16, backgroundColor: '#2196F3', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    amountCard: { margin: 16, padding: 20, borderRadius: 16, backgroundColor: 'white', alignItems: 'center' },
+    amountInputContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+    amountInput: { backgroundColor: 'transparent', width: 200, textAlign: 'center', height: 60 },
+    
+    section: { paddingHorizontal: 16, marginBottom: 16 },
+    sectionTitle: { marginBottom: 10, fontWeight: 'bold', color: colors.textPrimary },
+    input: { backgroundColor: 'white' },
+    
+    footerButtons: { padding: 16, flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#eee', backgroundColor: 'white' },
+    cancelBtn: { flex: 1, marginRight: 8, borderRadius: 25, borderColor: colors.outline },
+    saveBtn: { flex: 1, borderRadius: 25 },
+    
+    headerSummary: { margin: 16, padding: 20, borderRadius: 16, backgroundColor: colors.primary, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     list: { padding: 16, paddingBottom: 80 },
-    card: { marginBottom: 12, backgroundColor: 'white', overflow: 'hidden', borderRadius: 12 },
-    cardInner: { flexDirection: 'row', alignItems: 'center', padding: 12 },
-    dateBox: { width: 50, height: 50, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 16 },
+    card: { marginBottom: 12, backgroundColor: 'white', borderRadius: 16, borderWidth: 1, borderColor: '#eee' },
+    cardInner: { flexDirection: 'row', alignItems: 'center', padding: 16 },
+    dateBox: { width: 56, height: 56, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 16 },
     cardContent: { flex: 1 },
     rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    fab: { position: 'absolute', margin: 16, right: 0, bottom: 0 },
-    modalContainer: { backgroundColor: 'white', padding: 20, margin: 20, borderRadius: 12 }
+    fab: { position: 'absolute', margin: 16, right: 0, bottom: 20 },
+    modalContainer: { backgroundColor: 'white', padding: 24, margin: 20, borderRadius: 16 }
 });

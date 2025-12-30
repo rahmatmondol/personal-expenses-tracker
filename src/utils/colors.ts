@@ -28,4 +28,6 @@ export const colors = {
     debtsCardBg: '#FFF8E1', // Light Gold Surface
     debtsIconBg: '#C89F5D', // Secondary Gold
     debtsText: '#8D6E63', // Darker Brown/Gold
+
+    outline: '#D0D0D0', // Muted Border
 };

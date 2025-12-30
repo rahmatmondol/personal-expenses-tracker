@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, Alert, TouchableOpacity, KeyboardAvoidingView, Platform, Modal } from 'react-native';
-import { Text, TextInput, Button, Card, useTheme, Appbar, SegmentedButtons, FAB, Avatar, Chip, Portal, Dialog, RadioButton } from 'react-native-paper';
+import { Text, TextInput, Button, Card, useTheme, Appbar, SegmentedButtons, FAB, Avatar, Chip, Portal, Dialog, RadioButton, Surface } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
 import { formatAmount } from '../utils/formatting';
@@ -98,131 +98,132 @@ export const DebtScreen = () => {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <Appbar.Header style={{ backgroundColor: 'white', elevation: 0 }}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom', 'left', 'right']}>
+            <Appbar.Header style={{ backgroundColor: colors.background, elevation: 0 }}>
                 <Appbar.BackAction onPress={() => navigation.goBack()} />
                 <Appbar.Content title="Debts & Loans" titleStyle={{ fontWeight: 'bold' }} />
             </Appbar.Header>
 
-            <Portal>
-                <Dialog visible={paymentModalVisible} onDismiss={() => setPaymentModalVisible(false)} style={{ backgroundColor: 'white' }}>
-                    <Dialog.Title>Mark as Paid</Dialog.Title>
-                    <Dialog.Content>
-                        <Text variant="bodyMedium" style={{ marginBottom: 12 }}>
-                            Select the account used for this payment (Optional):
-                        </Text>
-                        <ScrollView style={{ maxHeight: 200 }}>
-                            <RadioButton.Group onValueChange={val => setPaymentAccountId(val ? parseInt(val) : null)} value={paymentAccountId ? paymentAccountId.toString() : ''}>
-                                <View style={styles.radioItem}>
-                                    <RadioButton value="" status={!paymentAccountId ? 'checked' : 'unchecked'} onPress={() => setPaymentAccountId(null)} />
-                                    <Text onPress={() => setPaymentAccountId(null)}>None (Just mark as paid)</Text>
-                                </View>
-                                {accounts.map(acc => (
-                                    <View key={acc.id} style={styles.radioItem}>
-                                        <RadioButton value={acc.id.toString()} />
-                                        <Text onPress={() => setPaymentAccountId(acc.id)}>{acc.name} ({currency}{formatAmount(acc.balance)})</Text>
-                                    </View>
-                                ))}
-                            </RadioButton.Group>
-                        </ScrollView>
-                    </Dialog.Content>
-                    <Dialog.Actions>
-                        <Button onPress={() => setPaymentModalVisible(false)}>Cancel</Button>
-                        <Button onPress={handleMarkPaid}>Confirm</Button>
-                    </Dialog.Actions>
-                </Dialog>
-            </Portal>
-
             {isAdding ? (
-                <KeyboardAvoidingView
-                    style={styles.formContainer}
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                >
-                    <ScrollView contentContainerStyle={styles.formScroll}>
-                        <Text variant="headlineSmall" style={styles.formTitle}>
-                            {type === 'borrowed' ? 'I Borrowed From...' : 'I Lent To...'}
-                        </Text>
-
-                        <SegmentedButtons
-                            value={type}
-                            onValueChange={val => setType(val as any)}
-                            buttons={[
-                                { value: 'borrowed', label: 'Borrowed', icon: 'arrow-down' },
-                                { value: 'lent', label: 'Lent', icon: 'arrow-up' },
-                            ]}
-                            style={{ marginBottom: 24 }}
-                        />
-
-                        <TextInput
-                            label="Amount"
-                            value={amount}
-                            onChangeText={setAmount}
-                            keyboardType="numeric"
-                            mode="outlined"
-                            left={<TextInput.Affix text={currency} />}
-                            style={styles.input}
-                        />
-
-                        <Text variant="titleMedium" style={{ marginTop: 10, marginBottom: 8, fontWeight: 'bold' }}>
-                            {type === 'borrowed' ? 'Deposit to Account' : 'Pay from Account'}
-                        </Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-                            {accounts.map(acc => (
-                                <Chip
-                                    key={acc.id}
-                                    selected={selectedAccountId === acc.id}
-                                    onPress={() => setSelectedAccountId(selectedAccountId === acc.id ? null : acc.id)}
-                                    style={{ marginRight: 8, backgroundColor: selectedAccountId === acc.id ? '#E3F2FD' : '#f0f0f0' }}
-                                    icon={acc.icon}
-                                    showSelectedOverlay
-                                >
-                                    {acc.name}
-                                </Chip>
-                            ))}
-                        </ScrollView>
-
-                        <TextInput
-                            label="Contact Name (e.g. John Doe)"
-                            value={contactName}
-                            onChangeText={setContactName}
-                            mode="outlined"
-                            style={styles.input}
-                            right={<TextInput.Icon icon="account" />}
-                        />
-
-                        <TouchableOpacity onPress={() => setShowPicker(true)} style={styles.datePicker}>
-                            <View>
-                                <Text variant="labelMedium" style={{ color: 'gray' }}>Due Date</Text>
-                                <Text variant="bodyLarge">{dueDate.toLocaleDateString()}</Text>
+                <View style={styles.container}>
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        style={{ flex: 1 }}
+                    >
+                        <ScrollView contentContainerStyle={styles.formScroll} keyboardShouldPersistTaps="handled">
+                            {/* Type Toggle */}
+                            <View style={{ marginBottom: 20, paddingHorizontal: 16 }}>
+                                <SegmentedButtons
+                                    value={type}
+                                    onValueChange={val => setType(val as any)}
+                                    buttons={[
+                                        { value: 'borrowed', label: 'Borrowed', icon: 'arrow-down' },
+                                        { value: 'lent', label: 'Lent', icon: 'arrow-up' },
+                                    ]}
+                                    theme={{
+                                        colors: {
+                                            secondaryContainer: type === 'borrowed' ? '#FFEBEE' : '#E8F5E9',
+                                            onSecondaryContainer: type === 'borrowed' ? '#D32F2F' : '#388E3C',
+                                        }
+                                    }}
+                                />
                             </View>
-                            <Avatar.Icon size={40} icon="calendar" style={{ backgroundColor: '#E0E0E0' }} color="#616161" />
-                        </TouchableOpacity>
 
-                        {showPicker && (
-                            <DateTimePicker
-                                value={dueDate}
-                                mode="date"
-                                onChange={(event, date) => {
-                                    setShowPicker(false);
-                                    if (date) setDueDate(date);
-                                }}
-                            />
-                        )}
+                            {/* Main Amount Input */}
+                            <Surface style={styles.amountCard} elevation={1}>
+                                <Text variant="titleSmall" style={{ color: theme.colors.secondary }}>Total Amount</Text>
+                                <View style={styles.amountInputContainer}>
+                                    <Text variant="headlineLarge" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>{currency}</Text>
+                                    <TextInput
+                                        value={amount}
+                                        onChangeText={setAmount}
+                                        keyboardType="numeric"
+                                        style={styles.amountInput}
+                                        placeholder="0"
+                                        placeholderTextColor={theme.colors.outline}
+                                        contentStyle={{ fontSize: 40, fontWeight: 'bold', color: theme.colors.primary }}
+                                        underlineColor="transparent"
+                                        activeUnderlineColor="transparent"
+                                    />
+                                </View>
+                            </Surface>
 
-                        <TextInput
-                            label="Note (Optional)"
-                            value={description}
-                            onChangeText={setDescription}
-                            mode="outlined"
-                            multiline
-                            style={styles.input}
-                        />
-                    </ScrollView>
-                    <View style={styles.footerButtons}>
-                        <Button mode="outlined" onPress={() => setIsAdding(false)} style={styles.cancelBtn}>Cancel</Button>
-                        <Button mode="contained" onPress={handleSave} style={styles.saveBtn}>Save Debt</Button>
+                            {/* Account Selection */}
+                            <View style={styles.section}>
+                                <Text variant="titleMedium" style={styles.sectionTitle}>
+                                    {type === 'borrowed' ? 'Deposit to Account' : 'Pay from Account'}
+                                </Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
+                                    {accounts.map(acc => (
+                                        <Chip
+                                            key={acc.id}
+                                            selected={selectedAccountId === acc.id}
+                                            onPress={() => setSelectedAccountId(selectedAccountId === acc.id ? null : acc.id)}
+                                            style={{ marginRight: 8 }}
+                                            showSelectedOverlay
+                                            avatar={<Avatar.Icon size={24} icon={acc.icon || 'bank'} style={{ backgroundColor: acc.color }} color="white" />}
+                                        >
+                                            {acc.name}
+                                        </Chip>
+                                    ))}
+                                </ScrollView>
+                            </View>
+
+                            {/* Contact Name */}
+                            <View style={styles.section}>
+                                <TextInput
+                                    label="Contact Name (e.g. John Doe)"
+                                    value={contactName}
+                                    onChangeText={setContactName}
+                                    mode="outlined"
+                                    style={styles.input}
+                                    right={<TextInput.Icon icon="account" />}
+                                />
+                            </View>
+
+                            {/* Date Picker */}
+                            <View style={styles.section}>
+                                <TouchableOpacity onPress={() => setShowPicker(true)} style={styles.datePicker}>
+                                    <View>
+                                        <Text variant="labelMedium" style={{ color: 'gray' }}>Due Date</Text>
+                                        <Text variant="bodyLarge">{dueDate.toLocaleDateString()}</Text>
+                                    </View>
+                                    <Avatar.Icon size={40} icon="calendar" style={{ backgroundColor: '#E0E0E0' }} color="#616161" />
+                                </TouchableOpacity>
+
+                                {showPicker && (
+                                    <DateTimePicker
+                                        value={dueDate}
+                                        mode="date"
+                                        onChange={(event, date) => {
+                                            setShowPicker(false);
+                                            if (date) setDueDate(date);
+                                        }}
+                                    />
+                                )}
+                            </View>
+
+                            {/* Note Input */}
+                            <View style={styles.section}>
+                                <TextInput
+                                    label="Note (Optional)"
+                                    value={description}
+                                    onChangeText={setDescription}
+                                    mode="outlined"
+                                    multiline
+                                    style={styles.input}
+                                    left={<TextInput.Icon icon="note-text-outline" />}
+                                />
+                            </View>
+                        </ScrollView>
+                    </KeyboardAvoidingView>
+
+                    {/* Footer Buttons */}
+                    <View style={styles.footer}>
+                        <Button mode="outlined" onPress={() => setIsAdding(false)} style={styles.cancelBtn} contentStyle={{ height: 48 }}>Cancel</Button>
+                        <Button mode="contained" onPress={handleSave} style={styles.saveBtn} contentStyle={{ height: 48 }}>Save Debt</Button>
                     </View>
-                </KeyboardAvoidingView>
+                </View>
             ) : (
                 <View style={{ flex: 1 }}>
                     {/* Summary Cards */}
@@ -353,22 +354,59 @@ export const DebtScreen = () => {
                     />
                 </View>
             )}
-        </View>
+
+            <Portal>
+                <Dialog visible={paymentModalVisible} onDismiss={() => setPaymentModalVisible(false)} style={{ backgroundColor: 'white' }}>
+                    <Dialog.Title>Mark as Paid</Dialog.Title>
+                    <Dialog.Content>
+                        <Text variant="bodyMedium" style={{ marginBottom: 12 }}>
+                            Select the account used for this payment (Optional):
+                        </Text>
+                        <ScrollView style={{ maxHeight: 200 }}>
+                            <RadioButton.Group onValueChange={val => setPaymentAccountId(val ? parseInt(val) : null)} value={paymentAccountId ? paymentAccountId.toString() : ''}>
+                                <View style={styles.radioItem}>
+                                    <RadioButton value="" status={!paymentAccountId ? 'checked' : 'unchecked'} onPress={() => setPaymentAccountId(null)} />
+                                    <Text onPress={() => setPaymentAccountId(null)}>None (Just mark as paid)</Text>
+                                </View>
+                                {accounts.map(acc => (
+                                    <View key={acc.id} style={styles.radioItem}>
+                                        <RadioButton value={acc.id.toString()} />
+                                        <Text onPress={() => setPaymentAccountId(acc.id)}>{acc.name} ({currency}{formatAmount(acc.balance)})</Text>
+                                    </View>
+                                ))}
+                            </RadioButton.Group>
+                        </ScrollView>
+                    </Dialog.Content>
+                    <Dialog.Actions>
+                        <Button onPress={() => setPaymentModalVisible(false)}>Cancel</Button>
+                        <Button onPress={handleMarkPaid}>Confirm</Button>
+                    </Dialog.Actions>
+                </Dialog>
+            </Portal>
+        </SafeAreaView>
     );
 };
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     formContainer: { flex: 1, backgroundColor: colors.white },
-    formScroll: { padding: 20 },
-    formTitle: { fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
-    input: { marginBottom: 16, backgroundColor: 'white' },
-    datePicker: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 4, marginBottom: 16 },
-    footerButtons: { padding: 16, flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#eee' },
-    cancelBtn: { flex: 1, marginRight: 8 },
-    saveBtn: { flex: 1 },
+    formScroll: { paddingBottom: 20 },
 
-    summaryContainer: { flexDirection: 'row', padding: 16, paddingBottom: 0 },
+    // New Styles matching AddTransaction
+    amountCard: { margin: 16, padding: 20, borderRadius: 16, backgroundColor: 'white', alignItems: 'center' },
+    amountInputContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+    amountInput: { backgroundColor: 'transparent', width: 200, textAlign: 'center', height: 60 },
+    section: { paddingHorizontal: 16, marginBottom: 16 },
+    sectionTitle: { marginBottom: 10, fontWeight: 'bold' },
+
+    input: { backgroundColor: 'white' },
+    datePicker: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 4, backgroundColor: 'white' },
+
+    footer: { padding: 16, flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#eee', backgroundColor: 'white' },
+    cancelBtn: { flex: 1, marginRight: 8, borderRadius: 25, borderColor: colors.outline },
+    saveBtn: { flex: 1, borderRadius: 25 },
+
+    summaryContainer: { flexDirection: 'row', padding: 16, paddingBottom: 5 },
     summaryCard: { flex: 1, marginHorizontal: 4 },
     list: { padding: 16, paddingBottom: 80 },
     card: { marginBottom: 12, backgroundColor: 'white', overflow: 'hidden', borderRadius: 12 },
@@ -378,6 +416,6 @@ const styles = StyleSheet.create({
     rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     actionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
     actionButton: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
-    fab: { position: 'absolute', margin: 16, right: 0, bottom: 60 },
+    fab: { position: 'absolute', margin: 16, right: 0, bottom: 20 },
     radioItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
 });
