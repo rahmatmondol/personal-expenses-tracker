@@ -7,6 +7,7 @@ import { formatAmount } from '../utils/formatting';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Debt, Account } from '../types';
 import * as repo from '../db/repo';
+import { colors } from '../utils/colors';
 
 export const DebtScreen = () => {
     const theme = useTheme();
@@ -97,7 +98,7 @@ export const DebtScreen = () => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
             <Appbar.Header style={{ backgroundColor: 'white', elevation: 0 }}>
                 <Appbar.BackAction onPress={() => navigation.goBack()} />
                 <Appbar.Content title="Debts & Loans" titleStyle={{ fontWeight: 'bold' }} />
@@ -346,18 +347,19 @@ export const DebtScreen = () => {
                     <FAB
                         icon="plus"
                         label="Add New"
-                        style={styles.fab}
+                        color={colors.white}
+                        style={[styles.fab, { backgroundColor: colors.primary }]}
                         onPress={() => setIsAdding(true)}
                     />
                 </View>
             )}
-        </SafeAreaView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F5F7FA' },
-    formContainer: { flex: 1, backgroundColor: 'white' },
+    container: { flex: 1, backgroundColor: colors.background },
+    formContainer: { flex: 1, backgroundColor: colors.white },
     formScroll: { padding: 20 },
     formTitle: { fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
     input: { marginBottom: 16, backgroundColor: 'white' },
@@ -376,6 +378,6 @@ const styles = StyleSheet.create({
     rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     actionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
     actionButton: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
-    fab: { position: 'absolute', margin: 16, right: 0, bottom: 0 },
+    fab: { position: 'absolute', margin: 16, right: 0, bottom: 60 },
     radioItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
 });

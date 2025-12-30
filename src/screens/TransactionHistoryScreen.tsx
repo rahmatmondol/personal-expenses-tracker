@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, SectionList, Alert, TouchableOpacity, Platform } from 'react-native';
 import { Text, useTheme, Appbar, Surface, Avatar, Button } from 'react-native-paper';
 import { useStore } from '../store/useStore';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { formatAmount } from '../utils/formatting';
 import { Transaction } from '../types';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -10,15 +10,30 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 export const TransactionHistoryScreen = () => {
     const { transactions, deleteTransaction, currency, filterTransactions } = useStore();
     const navigation = useNavigation();
+    const route = useRoute();
+    const { accountId, accountName } = route.params as { accountId?: number; accountName?: string } || {};
     const theme = useTheme();
 
-    const [startDate, setStartDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+    const [startDate, setStartDate] = useState(
+        accountId 
+            ? new Date(2000, 0, 1) // Show all history for account
+            : new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+    );
     const [endDate, setEndDate] = useState(new Date());
     const [showPicker, setShowPicker] = useState<'start' | 'end' | null>(null);
 
+    // Re-fetch when accountId changes (e.g. navigation)
+    useEffect(() => {
+        if (accountId) {
+             setStartDate(new Date(2000, 0, 1));
+        } else {
+             setStartDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+        }
+    }, [accountId]);
+
     useEffect(() => {
         handleFilter();
-    }, []);
+    }, [startDate, endDate, accountId]);
 
     const handleFilter = () => {
         // Set end date to end of day
@@ -29,7 +44,7 @@ export const TransactionHistoryScreen = () => {
         const start = new Date(startDate);
         start.setHours(0, 0, 0, 0);
 
-        filterTransactions(start.getTime(), end.getTime());
+        filterTransactions(start.getTime(), end.getTime(), accountId);
     };
 
     const onDateChange = (event: any, selectedDate?: Date) => {
@@ -93,43 +108,36 @@ export const TransactionHistoryScreen = () => {
         <View style={styles.container}>
             <Appbar.Header style={{ backgroundColor: 'white' }}>
                 <Appbar.BackAction onPress={() => navigation.goBack()} />
-                <Appbar.Content title="Transaction History" />
+                <Appbar.Content title={accountName ? `${accountName} History` : "Transaction History"} />
             </Appbar.Header>
 
-            <View style={styles.filterContainer}>
-                <View style={styles.dateButtonContainer}>
-                    <Text variant="labelSmall" style={{ color: 'gray' }}>From</Text>
+            <Surface style={styles.filterContainer} elevation={1}>
+                <View style={styles.dateCol}>
+                    <Text variant="labelSmall" style={{color: 'gray'}}>From Date</Text>
                     <Button 
                         mode="outlined" 
                         onPress={() => setShowPicker('start')}
-                        style={styles.dateButton}
-                        contentStyle={{ height: 36 }}
+                        compact
+                        style={{ borderColor: '#ddd' }}
                     >
                         {startDate.toLocaleDateString()}
                     </Button>
                 </View>
 
-                <View style={styles.dateButtonContainer}>
-                    <Text variant="labelSmall" style={{ color: 'gray' }}>To</Text>
+                <Text style={{ marginHorizontal: 10, alignSelf: 'center', marginTop: 15 }}>-</Text>
+
+                <View style={styles.dateCol}>
+                    <Text variant="labelSmall" style={{color: 'gray'}}>To Date</Text>
                     <Button 
                         mode="outlined" 
                         onPress={() => setShowPicker('end')}
-                        style={styles.dateButton}
-                        contentStyle={{ height: 36 }}
+                        compact
+                        style={{ borderColor: '#ddd' }}
                     >
                         {endDate.toLocaleDateString()}
                     </Button>
                 </View>
-
-                <Button 
-                    mode="contained" 
-                    onPress={handleFilter}
-                    style={styles.filterButton}
-                    contentStyle={{ height: 36 }}
-                >
-                    Filter
-                </Button>
-            </View>
+            </Surface>
 
             {showPicker && (
                 <DateTimePicker
@@ -170,7 +178,7 @@ export const TransactionHistoryScreen = () => {
             <SectionList
                 sections={groupedTransactions}
                 keyExtractor={(item) => item.id.toString()}
-                contentContainerStyle={{ paddingBottom: 20 }}
+                contentContainerStyle={{ paddingBottom: 50 }}
                 renderSectionHeader={({ section: { title } }) => (
                     <Surface style={styles.header} elevation={0}>
                         <Text variant="labelMedium" style={{ color: theme.colors.secondary, fontWeight: 'bold' }}>{title}</Text>
@@ -239,24 +247,15 @@ const styles = StyleSheet.create({
     },
     filterContainer: {
         flexDirection: 'row',
-        padding: 16,
+        padding: 12,
         backgroundColor: 'white',
-        alignItems: 'flex-end',
-        gap: 10,
-        marginBottom: 10,
-        elevation: 1
-    },
-    dateButtonContainer: {
-        flex: 1,
-    },
-    dateButton: {
-        marginTop: 4,
         borderRadius: 8,
-        borderColor: '#ddd'
+        margin: 16,
+        marginBottom: 10,
+        justifyContent: 'center'
     },
-    filterButton: {
-        marginBottom: 2,
-        borderRadius: 8
+    dateCol: {
+        flex: 1
     },
     summaryCard: {
         flexDirection: 'row',

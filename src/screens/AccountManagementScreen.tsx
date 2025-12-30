@@ -6,10 +6,12 @@ import {
     Surface, Appbar, Chip
 } from 'react-native-paper';
 import { useStore } from '../store/useStore';
+import { useNavigation } from '@react-navigation/native';
 import { Account } from '../types';
 import { formatAmount } from '../utils/formatting';
 
 export const AccountManagementScreen = () => {
+    const navigation = useNavigation<any>();
     const { accounts, addAccount, updateAccount, deleteAccount, currency } = useStore();
     const theme = useTheme();
     const [visible, setVisible] = useState(false);
@@ -68,6 +70,22 @@ export const AccountManagementScreen = () => {
     };
 
     const handleDelete = (id: number, accName: string) => {
+        const account = accounts.find(a => a.id === id);
+        if (account && Math.abs(account.balance) > 0) {
+            Alert.alert(
+                'Cannot Delete Account',
+                `This account has a balance of ${currency}${formatAmount(account.balance)}. Please transfer the balance to another account or clear it before deleting.`,
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { 
+                        text: 'Transfer Funds', 
+                        onPress: () => navigation.navigate('Transfer', { fromAccountId: id }) 
+                    }
+                ]
+            );
+            return;
+        }
+
         Alert.alert(
             'Delete Account',
             `Are you sure you want to delete "${accName}"?`,
@@ -107,7 +125,7 @@ export const AccountManagementScreen = () => {
                             <Surface key={acc.id} style={styles.card} elevation={1}>
                                 <TouchableOpacity 
                                     style={styles.cardContent}
-                                    onPress={() => showEditDialog(acc)}
+                                    onPress={() => navigation.navigate('TransactionHistory', { accountId: acc.id, accountName: acc.name })}
                                 >
                                     <View style={styles.cardHeader}>
                                         <Avatar.Icon 
@@ -124,12 +142,19 @@ export const AccountManagementScreen = () => {
                                                 {acc.type}
                                             </Text>
                                         </View>
-                                        <IconButton 
-                                            icon="delete-outline" 
-                                            size={20} 
-                                            iconColor={theme.colors.error}
-                                            onPress={() => handleDelete(acc.id, acc.name)}
-                                        />
+                                        <View style={{ flexDirection: 'row' }}>
+                                            <IconButton 
+                                                icon="pencil-outline" 
+                                                size={20} 
+                                                onPress={() => showEditDialog(acc)}
+                                            />
+                                            <IconButton 
+                                                icon="delete-outline" 
+                                                size={20} 
+                                                iconColor={theme.colors.error}
+                                                onPress={() => handleDelete(acc.id, acc.name)}
+                                            />
+                                        </View>
                                     </View>
                                     <View style={styles.cardFooter}>
                                         <Text variant="titleLarge" style={{ fontWeight: 'bold', color: theme.colors.primary }}>
@@ -144,15 +169,26 @@ export const AccountManagementScreen = () => {
                 )}
             </ScrollView>
 
-            <Button 
-                mode="contained" 
-                icon="plus" 
-                onPress={showAddDialog} 
-                style={styles.fab}
-                contentStyle={{ height: 56 }}
-            >
-                Add New Account
-            </Button>
+            <View style={styles.fabContainer}>
+                <Button 
+                    mode="contained" 
+                    icon="bank-transfer" 
+                    onPress={() => navigation.navigate('Transfer')} 
+                    style={[styles.fabButton, { backgroundColor: theme.colors.secondary }]}
+                    contentStyle={{ height: 56 }}
+                >
+                    Transfer
+                </Button>
+                <Button 
+                    mode="contained" 
+                    icon="plus" 
+                    onPress={showAddDialog} 
+                    style={styles.fabButton}
+                    contentStyle={{ height: 56 }}
+                >
+                    Add Account
+                </Button>
+            </View>
 
             {/* Full Screen Modal */}
             <Modal
@@ -280,11 +316,16 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: '#f0f0f0'
     },
-    fab: { 
+    fabContainer: { 
         position: 'absolute', 
         margin: 16, 
         right: 0, 
-        bottom: 0, 
+        bottom: 0,
+        flexDirection: 'row',
+        gap: 12,
+        alignItems: 'center'
+    },
+    fabButton: { 
         borderRadius: 28,
         elevation: 4 
     },

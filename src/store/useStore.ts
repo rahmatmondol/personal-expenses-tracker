@@ -29,12 +29,13 @@ interface AppState {
   addCategory: (name: string, type: 'income' | 'expense', color: string, icon: string) => void;
   updateCategory: (id: number, name: string, type: 'income' | 'expense', color: string, icon: string) => void;
   deleteCategory: (id: number) => void;
-  filterTransactions: (startDate: number, endDate: number) => void;
+  filterTransactions: (startDate: number, endDate: number, accountId?: number) => void;
   
   // Account Actions
   addAccount: (name: string, type: string, balance: number, color: string, icon: string) => void;
   updateAccount: (id: number, name: string, type: string, balance: number, color: string, icon: string) => void;
   deleteAccount: (id: number) => void;
+  transferFunds: (fromAccountId: number, toAccountId: number, amount: number) => void;
 
   // Auth Actions
   setLocked: (locked: boolean) => void;
@@ -140,8 +141,8 @@ export const useStore = create<AppState>((set, get) => ({
     get().refreshData();
   },
 
-  filterTransactions: (startDate, endDate) => {
-    const transactions = repo.getTransactionsByRange(startDate, endDate);
+  filterTransactions: (startDate, endDate, accountId) => {
+    const transactions = repo.getTransactionsByRange(startDate, endDate, accountId);
     set({ transactions });
   },
 
@@ -157,6 +158,11 @@ export const useStore = create<AppState>((set, get) => ({
 
   deleteAccount: (id) => {
     repo.deleteAccount(id);
+    get().refreshData();
+  },
+
+  transferFunds: (fromAccountId, toAccountId, amount) => {
+    repo.transferFunds(fromAccountId, toAccountId, amount);
     get().refreshData();
   }
 }));

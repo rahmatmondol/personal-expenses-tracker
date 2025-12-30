@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet, Alert, ScrollView } from 'react-native';
 import { List, Button, Divider, Text, TextInput, Portal, Dialog, RadioButton, Chip, Switch } from 'react-native-paper';
 import * as DocumentPicker from 'expo-document-picker';
 import { exportDataToJSON, importDataFromJSON, exportDataToCSV } from '../db/backup';
@@ -7,6 +7,7 @@ import { resetDatabase } from '../db/repo';
 import { useStore } from '../store/useStore';
 import * as auth from '../utils/auth';
 import { useNavigation } from '@react-navigation/native';
+import { colors } from '../utils/colors';
 
 export const SettingsScreen = () => {
   const { refreshData, currency, setCurrency, hasPin, isBiometricEnabled, updateAuthSettings } = useStore();
@@ -208,6 +209,7 @@ export const SettingsScreen = () => {
 
   return (
     <View style={styles.container}>
+      <ScrollView>
       <List.Section>
         <List.Subheader>General</List.Subheader>
         <List.Item
@@ -299,6 +301,7 @@ export const SettingsScreen = () => {
             left={props => <List.Icon {...props} icon="information" />}
         />
       </List.Section>
+      </ScrollView>
 
       {/* PIN Dialog */}
       <Portal>
@@ -407,5 +410,5 @@ export const SettingsScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' }
+  container: { flex: 1, backgroundColor: colors.background }
 });

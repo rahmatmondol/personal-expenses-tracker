@@ -111,6 +111,12 @@ export const ReportsScreen = () => {
         <SegmentedButtons
             value={reportType}
             onValueChange={setReportType}
+            theme={{
+                colors: {
+                    secondaryContainer: theme.colors.primary,
+                    onSecondaryContainer: 'white',
+                }
+            }}
             buttons={[
             { value: 'consumption', label: 'Item Consumption' },
             { value: 'financial', label: 'Financial Trend' },

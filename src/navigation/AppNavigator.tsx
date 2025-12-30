@@ -2,7 +2,27 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { PaperProvider } from 'react-native-paper';
+import { PaperProvider, MD3LightTheme } from 'react-native-paper';
+import { colors } from '../utils/colors';
+import { StatusBar } from 'expo-status-bar';
+
+const theme = {
+  ...MD3LightTheme,
+  colors: {
+    ...MD3LightTheme.colors,
+    primary: colors.primary,
+    secondary: colors.secondary,
+    background: colors.background,
+    surface: colors.white,
+    error: colors.error,
+    onPrimary: colors.white,
+    onSecondary: colors.white,
+    onSurface: colors.textPrimary,
+    primaryContainer: colors.billsCardBg,
+    secondaryContainer: colors.debtsCardBg,
+  },
+};
+
 
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { TransactionHistoryScreen } from '../screens/TransactionHistoryScreen';
@@ -13,10 +33,13 @@ import { CategoryManagementScreen } from '../screens/CategoryManagementScreen';
 import { AccountManagementScreen } from '../screens/AccountManagementScreen';
 import { DebtScreen } from '../screens/DebtScreen';
 import { RecurringBillsScreen } from '../screens/RecurringBillsScreen';
+import { TransferScreen } from '../screens/TransferScreen';
 
 import { Ionicons } from '@expo/vector-icons';
 import { useStore } from '../store/useStore';
 import { LockScreen } from '../screens/LockScreen';
+import { AnimatedSplashScreen } from '../screens/AnimatedSplashScreen';
+import { useState } from 'react';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -44,8 +67,8 @@ function MainTabs() {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#6200ee',
-        tabBarInactiveTintColor: 'gray',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
       })}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
@@ -58,10 +81,21 @@ function MainTabs() {
 }
 
 export const AppNavigator = () => {
-  const { isLocked } = useStore();
+  const { isLocked, isLoading } = useStore();
+  const [isSplashFinished, setIsSplashFinished] = useState(false);
+
+  if (isLoading || !isSplashFinished) {
+      return (
+          <PaperProvider theme={theme}>
+              <StatusBar style="light" />
+              <AnimatedSplashScreen onAnimationFinish={() => setIsSplashFinished(true)} />
+          </PaperProvider>
+      );
+  }
 
   return (
-    <PaperProvider>
+    <PaperProvider theme={theme}>
+      <StatusBar style="dark" backgroundColor={colors.background} />
       {isLocked ? (
         <LockScreen />
       ) : (
@@ -95,6 +129,11 @@ export const AppNavigator = () => {
             <Stack.Screen 
               name="RecurringBills" 
               component={RecurringBillsScreen} 
+              options={{ headerShown: false }} 
+            />
+            <Stack.Screen 
+              name="Transfer" 
+              component={TransferScreen} 
               options={{ headerShown: false }} 
             />
           </Stack.Navigator>

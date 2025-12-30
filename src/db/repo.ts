@@ -34,6 +34,44 @@ export const deleteAccount = (id: number): void => {
     db.runSync('DELETE FROM accounts WHERE id = ?', [id]);
 };
 
+const getOrCreateTransferCategory = (type: 'income' | 'expense'): number => {
+    const existing = db.getFirstSync<{id: number}>('SELECT id FROM categories WHERE name = ? AND type = ?', ['Transfer', type]);
+    if (existing) return existing.id;
+    
+    db.runSync('INSERT INTO categories (name, type, color, icon) VALUES (?, ?, ?, ?)', 
+        ['Transfer', type, '#2196F3', 'bank-transfer']);
+    const result = db.getFirstSync<{id: number}>('SELECT last_insert_rowid() as id');
+    return result?.id || 0;
+}
+
+export const transferFunds = (fromAccountId: number, toAccountId: number, amount: number): void => {
+    db.withTransactionSync(() => {
+        // Get Account Names
+        const fromAccount = db.getFirstSync<{name: string}>('SELECT name FROM accounts WHERE id = ?', [fromAccountId]);
+        const toAccount = db.getFirstSync<{name: string}>('SELECT name FROM accounts WHERE id = ?', [toAccountId]);
+
+        // 1. Deduct from Source
+        db.runSync('UPDATE accounts SET balance = balance - ? WHERE id = ?', [amount, fromAccountId]);
+        
+        // Record Expense Transaction
+        const expenseCatId = getOrCreateTransferCategory('expense');
+        db.runSync(
+            'INSERT INTO transactions (amount, date, categoryId, note, accountId) VALUES (?, ?, ?, ?, ?)',
+            [amount, Date.now(), expenseCatId, `Transfer to ${toAccount?.name || 'Account'}`, fromAccountId]
+        );
+
+        // 2. Add to Destination
+        db.runSync('UPDATE accounts SET balance = balance + ? WHERE id = ?', [amount, toAccountId]);
+
+        // Record Income Transaction
+        const incomeCatId = getOrCreateTransferCategory('income');
+        db.runSync(
+            'INSERT INTO transactions (amount, date, categoryId, note, accountId) VALUES (?, ?, ?, ?, ?)',
+            [amount, Date.now(), incomeCatId, `Transfer from ${fromAccount?.name || 'Account'}`, toAccountId]
+        );
+    });
+};
+
 // --- Categories ---
 export const getCategories = (): Category[] => {
   return db.getAllSync<Category>('SELECT * FROM categories ORDER BY name');
@@ -71,8 +109,8 @@ export const getTransactions = (limit: number = 50, offset: number = 0): Transac
     `, [limit, offset]);
 };
 
-export const getTransactionsByRange = (startDate: number, endDate: number): Transaction[] => {
-    return db.getAllSync<Transaction>(`
+export const getTransactionsByRange = (startDate: number, endDate: number, accountId?: number): Transaction[] => {
+    let query = `
         SELECT t.*, 
         c.name as categoryName, c.type as categoryType, c.color as categoryColor, c.icon as categoryIcon,
         a.name as accountName
@@ -80,8 +118,17 @@ export const getTransactionsByRange = (startDate: number, endDate: number): Tran
         LEFT JOIN categories c ON t.categoryId = c.id
         LEFT JOIN accounts a ON t.accountId = a.id
         WHERE t.date BETWEEN ? AND ?
-        ORDER BY t.date DESC
-    `, [startDate, endDate]);
+    `;
+    const params: any[] = [startDate, endDate];
+
+    if (accountId) {
+        query += ` AND (t.accountId = ? OR EXISTS (SELECT 1 FROM transaction_allocations ta WHERE ta.transactionId = t.id AND ta.accountId = ?))`;
+        params.push(accountId, accountId);
+    }
+
+    query += ` ORDER BY t.date DESC`;
+
+    return db.getAllSync<Transaction>(query, params);
 };
 
 export const getBalance = (): { totalIncome: number; totalExpense: number; balance: number } => {
