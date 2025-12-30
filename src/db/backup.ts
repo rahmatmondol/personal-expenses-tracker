@@ -50,7 +50,7 @@ export const exportDataToCSV = async () => {
     }
 };
 
-export const exportDataToJSON = async (password: string) => {
+export const exportDataToJSON = async (password: string, filename?: string) => {
   try {
     // 1. Get all data from DB
     const categories = db.getAllSync('SELECT * FROM categories');
@@ -81,7 +81,9 @@ export const exportDataToJSON = async (password: string) => {
     const encrypted = AES.encrypt(jsonString, password).toString();
 
     // 2. Write to local file
-    const fileUri = FileSystem.documentDirectory + 'finance_backup.enc';
+    const safeFilename = filename ? filename.replace(/[^a-z0-9]/gi, '_').toLowerCase() : 'finance_backup';
+    const finalFilename = safeFilename.endsWith('.enc') ? safeFilename : `${safeFilename}.enc`;
+    const fileUri = FileSystem.documentDirectory + finalFilename;
     await FileSystem.writeAsStringAsync(fileUri, encrypted);
 
     // 3. Share the file
