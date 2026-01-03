@@ -80,6 +80,30 @@ export const initDB = () => {
         FOREIGN KEY (categoryId) REFERENCES categories (id)
       );
 
+      CREATE TABLE IF NOT EXISTS loans (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        principal_amount REAL NOT NULL,
+        interest_rate REAL DEFAULT 0,
+        total_repayable REAL NOT NULL,
+        start_date INTEGER NOT NULL,
+        installment_frequency TEXT NOT NULL,
+        installment_amount REAL,
+        status TEXT DEFAULT 'active',
+        description TEXT,
+        remaining_amount REAL
+      );
+
+      CREATE TABLE IF NOT EXISTS loan_installments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        loan_id INTEGER NOT NULL,
+        due_date INTEGER NOT NULL,
+        amount REAL NOT NULL,
+        status TEXT DEFAULT 'pending',
+        paid_date INTEGER,
+        FOREIGN KEY (loan_id) REFERENCES loans (id) ON DELETE CASCADE
+      );
+
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT

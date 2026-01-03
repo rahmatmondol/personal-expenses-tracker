@@ -34,6 +34,9 @@ import { AccountManagementScreen } from '../screens/AccountManagementScreen';
 import { DebtScreen } from '../screens/DebtScreen';
 import { RecurringBillsScreen } from '../screens/RecurringBillsScreen';
 import { TransferScreen } from '../screens/TransferScreen';
+import { LoanScreen } from '../screens/LoanScreen';
+import { AddLoanScreen } from '../screens/AddLoanScreen';
+import { LoanDetailScreen } from '../screens/LoanDetailScreen';
 
 import { Ionicons } from '@expo/vector-icons';
 import { useStore } from '../store/useStore';
@@ -136,6 +139,9 @@ export const AppNavigator = () => {
               component={TransferScreen} 
               options={{ headerShown: false }} 
             />
+            <Stack.Screen name="Loan" component={LoanScreen} />
+            <Stack.Screen name="AddLoan" component={AddLoanScreen} options={{ presentation: 'modal' }} />
+            <Stack.Screen name="LoanDetail" component={LoanDetailScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       )}

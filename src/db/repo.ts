@@ -1,5 +1,5 @@
 import { db } from './db';
-import { Category, Transaction, TransactionItem, Account, Debt, RecurringPayment } from '../types';
+import { Category, Transaction, TransactionItem, Account, Debt, RecurringPayment, Loan, LoanInstallment } from '../types';
 
 // --- Settings ---
 export const getSetting = (key: string): string | null => {
@@ -401,6 +401,105 @@ export const getItemConsumptionReport = (startDate: number, endDate: number) => 
         GROUP BY ti.name, ti.unit
         ORDER BY totalSpent DESC
     `, [startDate, endDate]);
+};
+
+// --- Loans ---
+
+export const getOrCreateLoanCategory = (type: 'income' | 'expense'): number => {
+    const existing = db.getFirstSync<{id: number}>('SELECT id FROM categories WHERE name = ? AND type = ?', ['Loan', type]);
+    if (existing) return existing.id;
+    
+    db.runSync('INSERT INTO categories (name, type, color, icon) VALUES (?, ?, ?, ?)', 
+        ['Loan', type, type === 'income' ? '#4CAF50' : '#F44336', 'cash-multiple']);
+    const result = db.getFirstSync<{id: number}>('SELECT last_insert_rowid() as id');
+    return result?.id || 0;
+}
+
+export const addLoan = (
+  loan: Omit<Loan, 'id'>,
+  installments: { due_date: number; amount: number }[],
+  targetAccountId?: number
+): void => {
+  db.withTransactionSync(() => {
+    db.runSync(
+      `INSERT INTO loans (title, principal_amount, interest_rate, total_repayable, start_date, installment_frequency, installment_amount, status, description, remaining_amount)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        loan.title,
+        loan.principal_amount,
+        loan.interest_rate,
+        loan.total_repayable,
+        loan.start_date,
+        loan.installment_frequency,
+        loan.installment_amount,
+        loan.status,
+        loan.description || '',
+        loan.remaining_amount
+      ]
+    );
+
+    const result = db.getFirstSync<{ id: number }>('SELECT last_insert_rowid() as id');
+    const loanId = result?.id;
+
+    if (loanId) {
+      for (const inst of installments) {
+        db.runSync(
+          'INSERT INTO loan_installments (loan_id, due_date, amount, status) VALUES (?, ?, ?, ?)',
+          [loanId, inst.due_date, inst.amount, 'pending']
+        );
+      }
+    }
+
+    // Handle deposit to account
+    if (targetAccountId) {
+        const categoryId = getOrCreateLoanCategory('income');
+        
+        db.runSync(
+            'INSERT INTO transactions (amount, date, categoryId, note, accountId) VALUES (?, ?, ?, ?, ?)',
+            [loan.principal_amount, loan.start_date, categoryId, `Loan Disbursement: ${loan.title}`, targetAccountId]
+        );
+
+        db.runSync('UPDATE accounts SET balance = balance + ? WHERE id = ?', [loan.principal_amount, targetAccountId]);
+    }
+  });
+};
+
+export const getLoans = (): Loan[] => {
+  return db.getAllSync<Loan>('SELECT * FROM loans ORDER BY start_date DESC');
+};
+
+export const getLoanInstallments = (loanId: number): LoanInstallment[] => {
+  return db.getAllSync<LoanInstallment>('SELECT * FROM loan_installments WHERE loan_id = ? ORDER BY due_date ASC', [loanId]);
+};
+
+export const payInstallment = (installmentId: number, accountId?: number): void => {
+  db.withTransactionSync(() => {
+    const installment = db.getFirstSync<LoanInstallment>('SELECT * FROM loan_installments WHERE id = ?', [installmentId]);
+    if (!installment || installment.status === 'paid') return;
+
+    db.runSync('UPDATE loan_installments SET status = ?, paid_date = ? WHERE id = ?', ['paid', Date.now(), installmentId]);
+    
+    db.runSync('UPDATE loans SET remaining_amount = remaining_amount - ? WHERE id = ?', [installment.amount, installment.loan_id]);
+    
+    if (accountId) {
+        const categoryId = getOrCreateLoanCategory('expense');
+        db.runSync(
+            'INSERT INTO transactions (amount, date, categoryId, note, accountId) VALUES (?, ?, ?, ?, ?)',
+            [installment.amount, Date.now(), categoryId, `Loan Installment Payment: ${installment.loan_id}`, accountId]
+        );
+        db.runSync('UPDATE accounts SET balance = balance - ? WHERE id = ?', [installment.amount, accountId]);
+    }
+
+    // Check if loan is fully paid
+    const loan = db.getFirstSync<{remaining_amount: number}>('SELECT remaining_amount FROM loans WHERE id = ?', [installment.loan_id]);
+    if (loan && loan.remaining_amount <= 0.1) { // Floating point tolerance
+        db.runSync('UPDATE loans SET status = ? WHERE id = ?', ['completed', installment.loan_id]);
+    }
+  });
+};
+
+export const deleteLoan = (id: number): void => {
+    db.runSync('DELETE FROM loans WHERE id = ?', [id]);
 };
 
 export const getDailyTrend = (startDate: number, endDate: number) => {

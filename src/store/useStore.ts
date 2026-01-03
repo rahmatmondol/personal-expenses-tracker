@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Category, Transaction, TransactionItem, Account, Debt, RecurringPayment } from '../types';
+import { Category, Transaction, TransactionItem, Account, Debt, RecurringPayment, Loan } from '../types';
 import * as repo from '../db/repo';
 import { initDB } from '../db/db';
 import * as auth from '../utils/auth';
@@ -9,6 +9,7 @@ interface AppState {
   transactions: Transaction[];
   accounts: Account[];
   debts: Debt[];
+  loans: Loan[];
   recurringPayments: RecurringPayment[];
   balance: { totalIncome: number; totalExpense: number; balance: number };
   isLoading: boolean;
@@ -48,6 +49,7 @@ export const useStore = create<AppState>((set, get) => ({
   transactions: [],
   accounts: [],
   debts: [],
+  loans: [],
   recurringPayments: [],
   balance: { totalIncome: 0, totalExpense: 0, balance: 0 },
   isLoading: true,
@@ -102,8 +104,9 @@ export const useStore = create<AppState>((set, get) => ({
     const transactions = repo.getTransactions(50, 0); // Get last 50
     const balance = repo.getBalance();
     const debts = repo.getDebts();
+    const loans = repo.getLoans();
     const recurringPayments = repo.getRecurringPayments();
-    set({ categories, accounts, transactions, balance, debts, recurringPayments });
+    set({ categories, accounts, transactions, balance, debts, loans, recurringPayments });
   },
 
   addTransaction: (amount, date, categoryId, note, items, accountId, allocations) => {

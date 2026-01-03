@@ -68,3 +68,26 @@ export interface RecurringPayment {
   categoryColor?: string;
   categoryIcon?: string;
 }
+
+export interface Loan {
+  id: number;
+  title: string;
+  principal_amount: number;
+  interest_rate: number;
+  total_repayable: number;
+  start_date: number;
+  installment_frequency: 'daily' | 'weekly' | 'monthly' | 'custom';
+  installment_amount: number;
+  status: 'active' | 'completed';
+  description?: string;
+  remaining_amount: number;
+}
+
+export interface LoanInstallment {
+  id: number;
+  loan_id: number;
+  due_date: number;
+  amount: number;
+  status: 'pending' | 'paid' | 'overdue';
+  paid_date?: number;
+}

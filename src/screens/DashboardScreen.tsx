@@ -81,10 +81,10 @@ export const DashboardScreen = () => {
                 {/* Upcoming Bills & Debts Quick Access */}
                 <View style={styles.quickAccessContainer}>
                     <View style={styles.quickAccessHeader}>
-                        <Text variant="titleMedium" style={styles.boldText}>Upcoming & Debts</Text>
+                        <Text variant="titleMedium" style={styles.boldText}>Quick Access</Text>
                     </View>
 
-                    <View style={styles.quickAccessRow}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickAccessScroll}>
                         <Surface style={[styles.quickAccessCard, styles.billsCard]} elevation={1}>
                             <TouchableOpacity onPress={() => navigation.navigate('RecurringBills' as never)} style={styles.cardContent}>
                                 <View style={styles.cardHeader}>
@@ -99,7 +99,7 @@ export const DashboardScreen = () => {
                         </Surface>
 
                         <Surface style={[styles.quickAccessCard, styles.debtsCard]} elevation={1}>
-                            <TouchableOpacity onPress={() => navigation.navigate('Debts' as never)} style={styles.cardContent}>
+                            <TouchableOpacity onPress={() => navigation.navigate('Debt' as never)} style={styles.cardContent}>
                                 <View style={styles.cardHeader}>
                                     <Avatar.Icon size={32} icon="handshake" style={styles.debtsIcon} color={colors.white} />
                                     <Text variant="labelLarge" style={styles.debtsLabel}>Debts</Text>
@@ -110,7 +110,20 @@ export const DashboardScreen = () => {
                                 </Text>
                             </TouchableOpacity>
                         </Surface>
-                    </View>
+
+                         <Surface style={[styles.quickAccessCard, styles.loansCard]} elevation={1}>
+                            <TouchableOpacity onPress={() => navigation.navigate('Loan' as never)} style={styles.cardContent}>
+                                <View style={styles.cardHeader}>
+                                    <Avatar.Icon size={32} icon="cash-multiple" style={styles.loansIcon} color={colors.white} />
+                                    <Text variant="labelLarge" style={styles.loansLabel}>Loans</Text>
+                                </View>
+                                <Text variant="titleSmall">Active:</Text>
+                                <Text variant="bodyMedium">
+                                    {useStore.getState().loans?.filter(l => l.status === 'active').length || 0} Loans
+                                </Text>
+                            </TouchableOpacity>
+                        </Surface>
+                    </ScrollView>
                 </View>
 
                 {/* Recent Transactions */}
@@ -188,10 +201,11 @@ const styles = StyleSheet.create({
     accountType: { color: colors.textSecondary },
     quickAccessContainer: { marginHorizontal: 16, marginTop: 10 },
     quickAccessHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 },
-    quickAccessRow: { flexDirection: 'row', justifyContent: 'space-between' },
-    quickAccessCard: { flex: 1 },
-    billsCard: { marginRight: 8, backgroundColor: colors.billsCardBg, borderRadius: 12 },
-    debtsCard: { marginLeft: 8, backgroundColor: colors.debtsCardBg, borderRadius: 12 },
+    quickAccessScroll: { gap: 12, paddingRight: 16, paddingBottom: 12 },
+    quickAccessCard: { width: 140, borderRadius: 12 },
+    billsCard: { backgroundColor: colors.billsCardBg },
+    debtsCard: { backgroundColor: colors.debtsCardBg },
+    loansCard: { backgroundColor: colors.loansCardBg },
     cardContent: { 
         padding: 16,
     },
@@ -200,6 +214,8 @@ const styles = StyleSheet.create({
     billsLabel: { color: colors.billsText, fontWeight: 'bold' },
     debtsIcon: { backgroundColor: colors.debtsIconBg },
     debtsLabel: { color: colors.debtsText, fontWeight: 'bold' },
+    loansIcon: { backgroundColor: colors.loansIconBg },
+    loansLabel: { color: colors.loansText, fontWeight: 'bold' },
     transactionAmount: { alignSelf: 'center', fontWeight: 'bold' },
     listItem: { backgroundColor: colors.white, marginHorizontal: 16, marginVertical: 4, borderRadius: 8 },
     bottomSpacer: { height: 80 },

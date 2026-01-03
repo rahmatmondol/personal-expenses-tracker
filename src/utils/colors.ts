@@ -29,5 +29,9 @@ export const colors = {
     debtsIconBg: '#C89F5D', // Secondary Gold
     debtsText: '#8D6E63', // Darker Brown/Gold
 
+    loansCardBg: '#E3F2FD', // Light Blue Surface
+    loansIconBg: '#2196F3', // Blue
+    loansText: '#1565C0', // Darker Blue
+
     outline: '#D0D0D0', // Muted Border
 };
