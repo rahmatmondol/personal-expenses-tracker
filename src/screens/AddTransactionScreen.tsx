@@ -101,7 +101,7 @@ export const AddTransactionScreen = () => {
         });
         const remaining = total - otherAllocated;
         if (remaining > 0) {
-            setAccountAllocations(prev => ({ ...prev, [accId]: remaining.toFixed(2) }));
+            setAccountAllocations(prev => ({ ...prev, [accId]: Math.round(remaining).toString() }));
         }
     };
 

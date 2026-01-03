@@ -1,4 +1,9 @@
 pluginManagement {
+  repositories {
+    google()
+    mavenCentral()
+    gradlePluginPortal()
+  }
   def reactNativeGradlePlugin = new File(
     providers.exec {
       workingDir(rootDir)
@@ -23,12 +28,25 @@ plugins {
 }
 
 extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
+  println "RN Config Command: ${expoAutolinking.rnConfigCommand}"
   if (System.getenv('EXPO_USE_COMMUNITY_AUTOLINKING') == '1') {
     ex.autolinkLibrariesFromCommand()
   } else {
     ex.autolinkLibrariesFromCommand(expoAutolinking.rnConfigCommand)
   }
 }
+
+rootProject.children.each { p ->
+    if (p.projectDir.absolutePath.contains('personal')) {
+        def newPath = p.projectDir.absolutePath.replace('personal', 'wallate-care')
+        def newDir = new File(newPath)
+        if (newDir.exists()) {
+            println "Fixing path for ${p.name}: ${p.projectDir} -> ${newDir}"
+            p.projectDir = newDir
+        }
+    }
+}
+
 expoAutolinking.useExpoModules()
 
 rootProject.name = 'WalletCare'

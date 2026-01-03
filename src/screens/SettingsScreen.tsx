@@ -30,6 +30,7 @@ export const SettingsScreen = () => {
     const [backupFilename, setBackupFilename] = useState('');
     const [backupMode, setBackupMode] = useState<'export' | 'import' | null>(null);
     const [selectedFileUri, setSelectedFileUri] = useState<string | null>(null);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     const showCurrencyDialog = () => {
         setTempCurrency(currency);
@@ -157,20 +158,30 @@ export const SettingsScreen = () => {
     };
 
     const handleCSVExport = async () => {
+        if (isProcessing) return;
+        setIsProcessing(true);
         try {
             await exportDataToCSV();
         } catch (error) {
             Alert.alert('Error', 'Failed to export CSV');
+        } finally {
+            setIsProcessing(false);
         }
     };
 
     const executeBackupAction = async () => {
+        if (isProcessing) return;
         if (!password) {
             Alert.alert('Error', 'Password is required');
             return;
         }
 
+        setIsProcessing(true);
         setPasswordDialogVisible(false);
+
+        // Add a delay to ensure the dialog dismissal animation completes
+        // and the activity state is stable before opening the share sheet
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         if (backupMode === 'export') {
             try {
@@ -180,6 +191,8 @@ export const SettingsScreen = () => {
                 }
             } catch (error) {
                 Alert.alert('Error', 'Backup failed');
+            } finally {
+                setIsProcessing(false);
             }
         } else if (backupMode === 'import' && selectedFileUri) {
             try {
@@ -190,11 +203,15 @@ export const SettingsScreen = () => {
                 }
             } catch (error: any) {
                 Alert.alert('Error', error.message || 'Failed to restore data');
+            } finally {
+                setIsProcessing(false);
             }
         }
     };
 
     const handleResetPress = () => {
+        console.log('handleResetPress called');
+        if (isProcessing) return;
         Alert.alert(
             'Reset App',
             'Are you sure you want to delete ALL data? This action cannot be undone.',
@@ -203,10 +220,17 @@ export const SettingsScreen = () => {
                 {
                     text: 'Delete',
                     style: 'destructive',
-                    onPress: () => {
-                        resetDatabase();
-                        refreshData();
-                        Alert.alert('Success', 'App has been reset to factory settings.');
+                    onPress: async () => {
+                        setIsProcessing(true);
+                        try {
+                            resetDatabase();
+                            await refreshData();
+                            Alert.alert('Success', 'App has been reset to factory settings.');
+                        } catch (error) {
+                            Alert.alert('Error', 'Failed to reset app.');
+                        } finally {
+                            setIsProcessing(false);
+                        }
                     }
                 }
             ]
@@ -281,6 +305,7 @@ export const SettingsScreen = () => {
                         description="Save data to JSON file"
                         left={() => <Avatar.Icon icon="database-export" size={40} style={{ backgroundColor: theme.colors.secondaryContainer }} color={theme.colors.onSecondaryContainer} />}
                         onPress={handleExportPress}
+                        disabled={isProcessing}
                         style={styles.listItem}
                     />
                     <Divider style={styles.divider} />
@@ -289,6 +314,7 @@ export const SettingsScreen = () => {
                         description="Restore from JSON file"
                         left={() => <Avatar.Icon icon="database-import" size={40} style={{ backgroundColor: theme.colors.secondaryContainer }} color={theme.colors.onSecondaryContainer} />}
                         onPress={handleImportPress}
+                        disabled={isProcessing}
                         style={styles.listItem}
                     />
                     <Divider style={styles.divider} />
@@ -297,7 +323,8 @@ export const SettingsScreen = () => {
                         description="Delete all data"
                         left={() => <Avatar.Icon icon="delete-forever" size={40} style={{ backgroundColor: theme.colors.errorContainer }} color={theme.colors.error} />}
                         onPress={handleResetPress}
-                        titleStyle={{ color: theme.colors.error }}
+                        disabled={isProcessing}
+                        titleStyle={{ color: isProcessing ? 'gray' : theme.colors.error }}
                         style={styles.listItem}
                     />
                 </Surface>
@@ -431,8 +458,8 @@ export const SettingsScreen = () => {
                         />
                     </Dialog.Content>
                     <Dialog.Actions>
-                        <Button onPress={() => setPasswordDialogVisible(false)}>Cancel</Button>
-                        <Button mode="contained" onPress={executeBackupAction} style={{ marginLeft: 10 }}>
+                        <Button onPress={() => setPasswordDialogVisible(false)} disabled={isProcessing}>Cancel</Button>
+                        <Button mode="contained" onPress={executeBackupAction} style={{ marginLeft: 10 }} loading={isProcessing} disabled={isProcessing}>
                             {backupMode === 'export' ? 'Backup' : 'Restore'}
                         </Button>
                     </Dialog.Actions>

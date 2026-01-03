@@ -5,8 +5,11 @@ import encUtf8 from 'crypto-js/enc-utf8';
 import { db } from './db';
 
 const DB_NAME = 'finance.db';
+let isSharing = false;
 
 export const exportDataToCSV = async () => {
+    if (isSharing) return false;
+    isSharing = true;
     try {
         const transactions = db.getAllSync(`
             SELECT 
@@ -44,13 +47,23 @@ export const exportDataToCSV = async () => {
             alert('Sharing is not available');
         }
         return true;
-    } catch (error) {
-        console.error('CSV Export failed:', error);
+    } catch (error: any) {
+        // Only log as error if it's not a user cancellation, activity disappearance, or duplicate request
+        const msg = error.message || '';
+        if (!msg.includes('no longer available') && 
+            !msg.includes('cancelled') && 
+            !msg.includes('Another share request')) {
+            console.error('CSV Export failed:', error);
+        }
         return false;
+    } finally {
+        isSharing = false;
     }
 };
 
 export const exportDataToJSON = async (password: string, filename?: string) => {
+  if (isSharing) return false;
+  isSharing = true;
   try {
     // 1. Get all data from DB
     const categories = db.getAllSync('SELECT * FROM categories');
@@ -61,6 +74,8 @@ export const exportDataToJSON = async (password: string, filename?: string) => {
     const recurringPayments = db.getAllSync('SELECT * FROM recurring_payments');
     const settings = db.getAllSync('SELECT * FROM settings');
     const transactionAllocations = db.getAllSync('SELECT * FROM transaction_allocations');
+    const loans = db.getAllSync('SELECT * FROM loans');
+    const loanInstallments = db.getAllSync('SELECT * FROM loan_installments');
 
     const backupData = {
         version: 1,
@@ -72,7 +87,9 @@ export const exportDataToJSON = async (password: string, filename?: string) => {
         debts,
         recurringPayments,
         settings,
-        transactionAllocations
+        transactionAllocations,
+        loans,
+        loanInstallments
     };
 
     const jsonString = JSON.stringify(backupData, null, 2);
@@ -94,9 +111,16 @@ export const exportDataToJSON = async (password: string, filename?: string) => {
     }
     
     return true;
-  } catch (error) {
-    console.error('Export failed:', error);
+  } catch (error: any) {
+    const msg = error.message || '';
+    if (!msg.includes('no longer available') && 
+        !msg.includes('cancelled') && 
+        !msg.includes('Another share request')) {
+        console.error('Export failed:', error);
+    }
     return false;
+  } finally {
+    isSharing = false;
   }
 };
 
@@ -135,6 +159,8 @@ export const importDataFromJSON = async (uri: string, password: string) => {
             db.runSync('DELETE FROM categories');
             db.runSync('DELETE FROM accounts');
             db.runSync('DELETE FROM settings');
+            db.runSync('DELETE FROM loan_installments');
+            db.runSync('DELETE FROM loans');
 
             // Restore Accounts (Important to do before transactions due to foreign keys if enforced, though we use simple inserts)
             if (data.accounts) {
@@ -186,8 +212,28 @@ export const importDataFromJSON = async (uri: string, password: string) => {
             if (data.debts) {
                 data.debts.forEach((d: any) => {
                     db.runSync(
-                        'INSERT INTO debts (id, amount, description, type, due_date, is_paid, contact_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                        [d.id, d.amount, d.description, d.type, d.due_date, d.is_paid, d.contact_name, d.created_at]
+                        'INSERT INTO debts (id, amount, description, type, due_date, is_paid, contact_name, created_at, transactionId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                        [d.id, d.amount, d.description, d.type, d.due_date, d.is_paid, d.contact_name, d.created_at, d.transactionId]
+                    );
+                });
+            }
+
+            // Restore Loans
+            if (data.loans) {
+                data.loans.forEach((l: any) => {
+                    db.runSync(
+                        'INSERT INTO loans (id, title, principal_amount, interest_rate, total_repayable, start_date, installment_frequency, installment_amount, status, description, remaining_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                        [l.id, l.title, l.principal_amount, l.interest_rate, l.total_repayable, l.start_date, l.installment_frequency, l.installment_amount, l.status, l.description, l.remaining_amount]
+                    );
+                });
+            }
+
+            // Restore Loan Installments
+            if (data.loanInstallments) {
+                data.loanInstallments.forEach((li: any) => {
+                    db.runSync(
+                        'INSERT INTO loan_installments (id, loan_id, due_date, amount, status, paid_date) VALUES (?, ?, ?, ?, ?, ?)',
+                        [li.id, li.loan_id, li.due_date, li.amount, li.status, li.paid_date]
                     );
                 });
             }

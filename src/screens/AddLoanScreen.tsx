@@ -218,16 +218,16 @@ export const AddLoanScreen = () => {
                                 <Surface style={styles.summaryContainer} elevation={0}>
                                     <View style={styles.summaryRow}>
                                         <Text variant="bodyMedium" style={{color: colors.textSecondary}}>Installment:</Text>
-                                        <Text variant="titleSmall" style={{color: colors.primary}}>৳{summary.installmentAmount.toFixed(2)}</Text>
+                                        <Text variant="titleSmall" style={{color: colors.primary}}>৳{summary.installmentAmount}</Text>
                                     </View>
                                     <View style={styles.summaryRow}>
                                         <Text variant="bodyMedium" style={{color: colors.textSecondary}}>Total Interest:</Text>
-                                        <Text variant="bodyMedium" style={{color: colors.error}}>৳{summary.totalInterest.toFixed(2)}</Text>
+                                        <Text variant="bodyMedium" style={{color: colors.error}}>৳{summary.totalInterest}</Text>
                                     </View>
                                     <Divider style={{marginVertical: 8}}/>
                                     <View style={styles.summaryRow}>
                                         <Text variant="titleSmall">Total Repayable:</Text>
-                                        <Text variant="titleMedium">৳{summary.totalRepayable.toFixed(2)}</Text>
+                                        <Text variant="titleMedium">৳{summary.totalRepayable}</Text>
                                     </View>
                                 </Surface>
                             )}

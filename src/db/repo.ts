@@ -1,4 +1,4 @@
-import { db } from './db';
+import { db, initDB } from './db';
 import { Category, Transaction, TransactionItem, Account, Debt, RecurringPayment, Loan, LoanInstallment } from '../types';
 
 // --- Settings ---
@@ -17,16 +17,18 @@ export const getAccounts = (): Account[] => {
 };
 
 export const addAccount = (name: string, type: string, balance: number, color: string, icon: string): void => {
+    const roundedBalance = Math.round(balance);
     db.runSync(
         'INSERT INTO accounts (name, type, balance, color, icon) VALUES (?, ?, ?, ?, ?)',
-        [name, type, balance, color, icon]
+        [name, type, roundedBalance, color, icon]
     );
 };
 
 export const updateAccount = (id: number, name: string, type: string, balance: number, color: string, icon: string): void => {
+    const roundedBalance = Math.round(balance);
     db.runSync(
         'UPDATE accounts SET name = ?, type = ?, balance = ?, color = ?, icon = ? WHERE id = ?',
-        [name, type, balance, color, icon, id]
+        [name, type, roundedBalance, color, icon, id]
     );
 };
 
@@ -45,29 +47,30 @@ const getOrCreateTransferCategory = (type: 'income' | 'expense'): number => {
 }
 
 export const transferFunds = (fromAccountId: number, toAccountId: number, amount: number): void => {
+    const roundedAmount = Math.round(amount);
     db.withTransactionSync(() => {
         // Get Account Names
         const fromAccount = db.getFirstSync<{name: string}>('SELECT name FROM accounts WHERE id = ?', [fromAccountId]);
         const toAccount = db.getFirstSync<{name: string}>('SELECT name FROM accounts WHERE id = ?', [toAccountId]);
 
         // 1. Deduct from Source
-        db.runSync('UPDATE accounts SET balance = balance - ? WHERE id = ?', [amount, fromAccountId]);
+        db.runSync('UPDATE accounts SET balance = balance - ? WHERE id = ?', [roundedAmount, fromAccountId]);
         
         // Record Expense Transaction
         const expenseCatId = getOrCreateTransferCategory('expense');
         db.runSync(
             'INSERT INTO transactions (amount, date, categoryId, note, accountId) VALUES (?, ?, ?, ?, ?)',
-            [amount, Date.now(), expenseCatId, `Transfer to ${toAccount?.name || 'Account'}`, fromAccountId]
+            [roundedAmount, Date.now(), expenseCatId, `Transfer to ${toAccount?.name || 'Account'}`, fromAccountId]
         );
 
         // 2. Add to Destination
-        db.runSync('UPDATE accounts SET balance = balance + ? WHERE id = ?', [amount, toAccountId]);
+        db.runSync('UPDATE accounts SET balance = balance + ? WHERE id = ?', [roundedAmount, toAccountId]);
 
         // Record Income Transaction
         const incomeCatId = getOrCreateTransferCategory('income');
         db.runSync(
             'INSERT INTO transactions (amount, date, categoryId, note, accountId) VALUES (?, ?, ?, ?, ?)',
-            [amount, Date.now(), incomeCatId, `Transfer from ${fromAccount?.name || 'Account'}`, toAccountId]
+            [roundedAmount, Date.now(), incomeCatId, `Transfer from ${fromAccount?.name || 'Account'}`, toAccountId]
         );
     });
 };
@@ -166,26 +169,28 @@ export const addTransaction = (
   allocations: { accountId: number; amount: number }[] = [],
   dueInfo?: { amount: number; contactName: string; dueDate: number }
 ): void => {
+  const roundedAmount = Math.round(amount);
   db.withTransactionSync(() => {
     let finalAllocations = allocations;
     
     const result = db.runSync(
       'INSERT INTO transactions (amount, date, categoryId, note, accountId) VALUES (?, ?, ?, ?, ?)',
-      [amount, date, categoryId, note, accountId]
+      [roundedAmount, date, categoryId, note, accountId]
     );
     const transactionId = result.lastInsertRowId;
 
     if (dueInfo && dueInfo.amount > 0) {
+        const roundedDueAmount = Math.round(dueInfo.amount);
         db.runSync(
             'INSERT INTO debts (amount, description, type, due_date, contact_name, created_at, transactionId) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [dueInfo.amount, `Pending balance for transaction: ${note}`, 'borrowed', dueInfo.dueDate, dueInfo.contactName, Date.now(), transactionId]
+            [roundedDueAmount, `Pending balance for transaction: ${note}`, 'borrowed', dueInfo.dueDate, dueInfo.contactName, Date.now(), transactionId]
         );
     }
 
     for (const item of items) {
       db.runSync(
         'INSERT INTO transaction_items (transactionId, name, quantity, unit, pricePerUnit) VALUES (?, ?, ?, ?, ?)',
-        [transactionId, item.name, item.quantity, item.unit, item.pricePerUnit]
+        [transactionId, item.name, item.quantity, item.unit, Math.round(item.pricePerUnit)]
       );
     }
 
@@ -194,23 +199,24 @@ export const addTransaction = (
 
     if (finalAllocations.length > 0) {
         for (const alloc of finalAllocations) {
+            const roundedAllocAmount = Math.round(alloc.amount);
             db.runSync(
                 'INSERT INTO transaction_allocations (transactionId, accountId, amount) VALUES (?, ?, ?)',
-                [transactionId, alloc.accountId, alloc.amount]
+                [transactionId, alloc.accountId, roundedAllocAmount]
             );
             // Update Balance
             if (category.type === 'expense') {
-                db.runSync('UPDATE accounts SET balance = balance - ? WHERE id = ?', [alloc.amount, alloc.accountId]);
+                db.runSync('UPDATE accounts SET balance = balance - ? WHERE id = ?', [roundedAllocAmount, alloc.accountId]);
             } else {
-                db.runSync('UPDATE accounts SET balance = balance + ? WHERE id = ?', [alloc.amount, alloc.accountId]);
+                db.runSync('UPDATE accounts SET balance = balance + ? WHERE id = ?', [roundedAllocAmount, alloc.accountId]);
             }
         }
     } else if (accountId) {
         // Single account update
         if (category.type === 'expense') {
-            db.runSync('UPDATE accounts SET balance = balance - ? WHERE id = ?', [amount, accountId]);
+            db.runSync('UPDATE accounts SET balance = balance - ? WHERE id = ?', [roundedAmount, accountId]);
         } else {
-            db.runSync('UPDATE accounts SET balance = balance + ? WHERE id = ?', [amount, accountId]);
+            db.runSync('UPDATE accounts SET balance = balance + ? WHERE id = ?', [roundedAmount, accountId]);
         }
     }
   });
@@ -286,10 +292,11 @@ const getOrCreateDebtCategory = (type: 'income' | 'expense'): number => {
 }
 
 export const addDebt = (amount: number, description: string, type: 'borrowed' | 'lent', due_date: number, contact_name: string, accountId: number | null = null): void => {
+    const roundedAmount = Math.round(amount);
     db.withTransactionSync(() => {
         db.runSync(
             'INSERT INTO debts (amount, description, type, due_date, contact_name, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-            [amount, description, type, due_date, contact_name, Date.now()]
+            [roundedAmount, description, type, due_date, contact_name, Date.now()]
         );
 
         if (accountId) {
@@ -297,22 +304,15 @@ export const addDebt = (amount: number, description: string, type: 'borrowed' | 
             const categoryId = getOrCreateDebtCategory(categoryType);
             const note = `Debt: ${type === 'borrowed' ? 'Borrowed from' : 'Lent to'} ${contact_name}${description ? ' - ' + description : ''}`;
             
-            // We duplicate logic from addTransaction to avoid nested transaction issues if addTransaction also uses withTransactionSync
-            // Or we can just call addTransaction if we trust it handles nesting (Savepoints).
-            // Expo SQLite's withTransactionSync uses SAVEPOINTs, so nesting is supported.
-            // However, to be absolutely safe and clean, let's just call addTransaction.
-            // But wait, addTransaction is defined above.
-            // Let's manually do the transaction insert and balance update here to be atomic with Debt insert.
-            
-            const transResult = db.runSync(
+            db.runSync(
                 'INSERT INTO transactions (amount, date, categoryId, note, accountId) VALUES (?, ?, ?, ?, ?)',
-                [amount, Date.now(), categoryId, note, accountId]
+                [roundedAmount, Date.now(), categoryId, note, accountId]
             );
             
             if (categoryType === 'expense') {
-                db.runSync('UPDATE accounts SET balance = balance - ? WHERE id = ?', [amount, accountId]);
+                db.runSync('UPDATE accounts SET balance = balance - ? WHERE id = ?', [roundedAmount, accountId]);
             } else {
-                db.runSync('UPDATE accounts SET balance = balance + ? WHERE id = ?', [amount, accountId]);
+                db.runSync('UPDATE accounts SET balance = balance + ? WHERE id = ?', [roundedAmount, accountId]);
             }
         }
     });
@@ -369,13 +369,15 @@ export const addRecurringPayment = (
     next_due_date: number, 
     reminder_days_before: number
 ): void => {
+    const roundedAmount = Math.round(amount);
     db.runSync(
         'INSERT INTO recurring_payments (amount, description, categoryId, frequency, due_day, next_due_date, reminder_days_before) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [amount, description, categoryId, frequency, due_day, next_due_date, reminder_days_before]
+        [roundedAmount, description, categoryId, frequency, due_day, next_due_date, reminder_days_before]
     );
 };
 
 export const updateRecurringPaymentNextDate = (id: number, next_due_date: number, last_paid_date: number, amount: number, categoryId: number, note: string, accountId: number | null = null): void => {
+    const roundedAmount = Math.round(amount);
     db.withTransactionSync(() => {
         db.runSync(
             'UPDATE recurring_payments SET next_due_date = ?, last_paid_date = ? WHERE id = ?',
@@ -385,12 +387,12 @@ export const updateRecurringPaymentNextDate = (id: number, next_due_date: number
         // Record transaction
         const result = db.runSync(
             'INSERT INTO transactions (amount, date, categoryId, note, accountId) VALUES (?, ?, ?, ?, ?)',
-            [amount, last_paid_date, categoryId, note, accountId]
+            [roundedAmount, last_paid_date, categoryId, note, accountId]
         );
         
         // Update Account Balance
         if (accountId) {
-             db.runSync('UPDATE accounts SET balance = balance - ? WHERE id = ?', [amount, accountId]);
+            db.runSync('UPDATE accounts SET balance = balance - ? WHERE id = ?', [roundedAmount, accountId]);
         }
     });
 };
@@ -410,7 +412,11 @@ export const resetDatabase = (): void => {
         db.runSync('DELETE FROM categories');
         db.runSync('DELETE FROM accounts');
         db.runSync('DELETE FROM settings');
+        db.runSync('DELETE FROM loan_installments');
+        db.runSync('DELETE FROM loans');
     });
+    // Re-initialize to seed default categories and accounts
+    initDB();
 };
 
 // --- Reports ---
@@ -446,21 +452,26 @@ export const addLoan = (
   installments: { due_date: number; amount: number }[],
   targetAccountId?: number
 ): void => {
+  const roundedPrincipal = Math.round(loan.principal_amount);
+  const roundedRepayable = Math.round(loan.total_repayable);
+  const roundedInstallment = Math.round(loan.installment_amount);
+  const roundedRemaining = Math.round(loan.remaining_amount);
+
   db.withTransactionSync(() => {
     db.runSync(
       `INSERT INTO loans (title, principal_amount, interest_rate, total_repayable, start_date, installment_frequency, installment_amount, status, description, remaining_amount)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         loan.title,
-        loan.principal_amount,
+        roundedPrincipal,
         loan.interest_rate,
-        loan.total_repayable,
+        roundedRepayable,
         loan.start_date,
         loan.installment_frequency,
-        loan.installment_amount,
+        roundedInstallment,
         loan.status,
         loan.description || '',
-        loan.remaining_amount
+        roundedRemaining
       ]
     );
 
@@ -471,7 +482,7 @@ export const addLoan = (
       for (const inst of installments) {
         db.runSync(
           'INSERT INTO loan_installments (loan_id, due_date, amount, status) VALUES (?, ?, ?, ?)',
-          [loanId, inst.due_date, inst.amount, 'pending']
+          [loanId, inst.due_date, Math.round(inst.amount), 'pending']
         );
       }
     }
@@ -482,10 +493,10 @@ export const addLoan = (
         
         db.runSync(
             'INSERT INTO transactions (amount, date, categoryId, note, accountId) VALUES (?, ?, ?, ?, ?)',
-            [loan.principal_amount, loan.start_date, categoryId, `Loan Disbursement: ${loan.title}`, targetAccountId]
+            [roundedPrincipal, loan.start_date, categoryId, `Loan Disbursement: ${loan.title}`, targetAccountId]
         );
 
-        db.runSync('UPDATE accounts SET balance = balance + ? WHERE id = ?', [loan.principal_amount, targetAccountId]);
+        db.runSync('UPDATE accounts SET balance = balance + ? WHERE id = ?', [roundedPrincipal, targetAccountId]);
     }
   });
 };
@@ -518,7 +529,7 @@ export const payInstallment = (installmentId: number, accountId?: number): void 
 
     // Check if loan is fully paid
     const loan = db.getFirstSync<{remaining_amount: number}>('SELECT remaining_amount FROM loans WHERE id = ?', [installment.loan_id]);
-    if (loan && loan.remaining_amount <= 0.1) { // Floating point tolerance
+    if (loan && loan.remaining_amount <= 0) {
         db.runSync('UPDATE loans SET status = ? WHERE id = ?', ['completed', installment.loan_id]);
     }
   });
