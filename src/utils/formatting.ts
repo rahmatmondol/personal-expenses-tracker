@@ -1,7 +1,4 @@
 export const formatAmount = (amount: number): string => {
-  // Rounds to 2 decimal places and removes trailing zeros
-  // 100.00 -> 100
-  // 100.50 -> 100.5
-  // 100.52 -> 100.52
-  return parseFloat(amount.toFixed(2)).toString();
+  // Round to nearest integer to avoid float values as per user request
+  return Math.round(amount).toString();
 };

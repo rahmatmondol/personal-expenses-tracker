@@ -101,7 +101,7 @@ export const DebtScreen = () => {
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom', 'left', 'right']}>
             <Appbar.Header style={{ backgroundColor: colors.background, elevation: 0 }}>
                 <Appbar.BackAction onPress={() => navigation.goBack()} />
-                <Appbar.Content title="Debts & Loans" titleStyle={{ fontWeight: 'bold' }} />
+                <Appbar.Content title="Debts" titleStyle={{ fontWeight: 'bold' }} />
             </Appbar.Header>
 
             {isAdding ? (
@@ -259,43 +259,54 @@ export const DebtScreen = () => {
                     <ScrollView contentContainerStyle={styles.list}>
                         <Text variant="titleMedium" style={{ marginBottom: 10, fontWeight: 'bold', paddingHorizontal: 4 }}>Active Debts</Text>
                         {debts.filter(d => !d.is_paid).map(debt => (
-                            <Card key={debt.id} style={styles.card} elevation={1}>
-                                <View style={styles.cardInner}>
-                                    <View style={[styles.indicator, { backgroundColor: debt.type === 'borrowed' ? '#F44336' : '#4CAF50' }]} />
-                                    <View style={styles.cardContent}>
-                                        <View style={styles.rowBetween}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <TouchableOpacity 
+                                key={debt.id} 
+                                onPress={() => navigation.navigate('DebtDetail' as never, { debtId: debt.id } as never)}
+                            >
+                                <Card style={styles.card} elevation={1}>
+                                    <View style={styles.cardInner}>
+                                        <View style={[styles.indicator, { backgroundColor: debt.type === 'borrowed' ? '#F44336' : '#4CAF50' }]} />
+                                        <View style={styles.cardContent}>
+                                            <View style={styles.rowBetween}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
 
-                                                <View>
-                                                    <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>{debt.contact_name}</Text>
-                                                    <Text variant="bodySmall" style={{ color: 'gray' }}>
-                                                        {debt.type === 'borrowed' ? 'Borrowed' : 'Lent'} • Due: {new Date(debt.due_date).toLocaleDateString()}
+                                                    <View>
+                                                        <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>{debt.contact_name}</Text>
+                                                        <Text variant="bodySmall" style={{ color: 'gray' }}>
+                                                            {debt.type === 'borrowed' ? 'Borrowed' : 'Lent'} • Due: {new Date(debt.due_date).toLocaleDateString()}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                                <View style={{ alignItems: 'flex-end' }}>
+                                                    <Text variant="titleMedium" style={{ fontWeight: 'bold', color: debt.type === 'borrowed' ? '#F44336' : '#4CAF50' }}>
+                                                        {debt.type === 'borrowed' ? '-' : '+'}{currency}{formatAmount(debt.amount)}
                                                     </Text>
+                                                    {debt.transactionId ? (
+                                                        <View style={{backgroundColor: '#FFF3E0', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginTop: 4}}>
+                                                            <Text style={{color: '#E65100', fontSize: 10, fontWeight: 'bold'}}>PENDING BILL</Text>
+                                                        </View>
+                                                    ) : (
+                                                        <Text variant="labelSmall" style={{ color: 'orange' }}>PENDING</Text>
+                                                    )}
                                                 </View>
                                             </View>
-                                            <View style={{ alignItems: 'flex-end' }}>
-                                                <Text variant="titleMedium" style={{ fontWeight: 'bold', color: debt.type === 'borrowed' ? '#F44336' : '#4CAF50' }}>
-                                                    {debt.type === 'borrowed' ? '-' : '+'}{currency}{formatAmount(debt.amount)}
-                                                </Text>
-                                                <Text variant="labelSmall" style={{ color: 'orange' }}>PENDING</Text>
+                                            {debt.description ? <Text variant="bodySmall" style={{ marginTop: 4, color: 'gray' }}>{debt.description}</Text> : null}
+
+                                            <View style={styles.actionRow}>
+                                                <Avatar.Icon
+                                                    size={30}
+                                                    icon={debt.type === 'borrowed' ? 'arrow-bottom-left' : 'arrow-top-right'}
+                                                    style={{ backgroundColor: debt.type === 'borrowed' ? '#FFEBEE' : '#E8F5E9', marginRight: 12 }}
+                                                    color={debt.type === 'borrowed' ? '#F44336' : '#4CAF50'}
+                                                />
+                                                <TouchableOpacity onPress={() => confirmMarkPaid(debt.id)}>
+                                                    <Text style={{ color: theme.colors.primary, fontWeight: 'bold' }}>MARK AS PAID</Text>
+                                                </TouchableOpacity>
                                             </View>
                                         </View>
-                                        {debt.description ? <Text variant="bodySmall" style={{ marginTop: 4, color: 'gray' }}>{debt.description}</Text> : null}
-
-                                        <View style={styles.actionRow}>
-                                            <Avatar.Icon
-                                                size={30}
-                                                icon={debt.type === 'borrowed' ? 'arrow-bottom-left' : 'arrow-top-right'}
-                                                style={{ backgroundColor: debt.type === 'borrowed' ? '#FFEBEE' : '#E8F5E9', marginRight: 12 }}
-                                                color={debt.type === 'borrowed' ? '#F44336' : '#4CAF50'}
-                                            />
-                                            <TouchableOpacity onPress={() => confirmMarkPaid(debt.id)}>
-                                                <Text style={{ color: theme.colors.primary, fontWeight: 'bold' }}>MARK AS PAID</Text>
-                                            </TouchableOpacity>
-                                        </View>
                                     </View>
-                                </View>
-                            </Card>
+                                </Card>
+                            </TouchableOpacity>
                         ))}
 
                         {debts.filter(d => d.is_paid).length > 0 && (

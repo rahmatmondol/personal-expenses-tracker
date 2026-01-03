@@ -32,9 +32,9 @@ export const AddLoanScreen = () => {
 
         if (principal === 0 || numberOfInstallments === 0) return null;
 
-        const totalInterest = principal * (rate / 100);
+        const totalInterest = Math.round(principal * (rate / 100));
         const totalRepayable = principal + totalInterest;
-        const installmentAmount = totalRepayable / numberOfInstallments;
+        const installmentAmount = Math.round(totalRepayable / numberOfInstallments);
 
         return {
             totalRepayable,
@@ -58,9 +58,9 @@ export const AddLoanScreen = () => {
              return;
         }
 
-        const totalInterest = principal * (rate / 100);
+        const totalInterest = Math.round(principal * (rate / 100));
         const totalRepayable = principal + totalInterest;
-        const installmentAmount = totalRepayable / numberOfInstallments;
+        const installmentAmount = Math.round(totalRepayable / numberOfInstallments);
 
         const installments = [];
         let currentDate = new Date(startDate);

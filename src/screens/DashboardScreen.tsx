@@ -99,7 +99,7 @@ export const DashboardScreen = () => {
                         </Surface>
 
                         <Surface style={[styles.quickAccessCard, styles.debtsCard]} elevation={1}>
-                            <TouchableOpacity onPress={() => navigation.navigate('Debt' as never)} style={styles.cardContent}>
+                            <TouchableOpacity onPress={() => navigation.navigate('Debts' as never)} style={styles.cardContent}>
                                 <View style={styles.cardHeader}>
                                     <Avatar.Icon size={32} icon="handshake" style={styles.debtsIcon} color={colors.white} />
                                     <Text variant="labelLarge" style={styles.debtsLabel}>Debts</Text>

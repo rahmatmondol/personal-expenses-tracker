@@ -23,7 +23,16 @@ interface AppState {
   // Actions
   init: () => Promise<void>;
   refreshData: () => void;
-  addTransaction: (amount: number, date: number, categoryId: number, note: string, items: Omit<TransactionItem, 'id' | 'transactionId'>[], accountId?: number, allocations?: { accountId: number; amount: number }[]) => void;
+  addTransaction: (
+    amount: number, 
+    date: number, 
+    categoryId: number, 
+    note: string, 
+    items: Omit<TransactionItem, 'id' | 'transactionId'>[], 
+    accountId?: number, 
+    allocations?: { accountId: number; amount: number }[],
+    dueInfo?: { amount: number; contactName: string; dueDate: number }
+  ) => void;
   deleteTransaction: (id: number) => void;
   refreshReports: () => void;
   setCurrency: (currency: string) => void;
@@ -109,8 +118,8 @@ export const useStore = create<AppState>((set, get) => ({
     set({ categories, accounts, transactions, balance, debts, loans, recurringPayments });
   },
 
-  addTransaction: (amount, date, categoryId, note, items, accountId, allocations) => {
-    repo.addTransaction(amount, date, categoryId, note, items, accountId, allocations);
+  addTransaction: (amount, date, categoryId, note, items, accountId, allocations, dueInfo) => {
+    repo.addTransaction(amount, date, categoryId, note, items, accountId, allocations, dueInfo);
     get().refreshData();
   },
 

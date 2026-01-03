@@ -50,6 +50,7 @@ export interface Debt {
   is_paid: number; // 0 or 1
   contact_name: string;
   created_at: number;
+  transactionId?: number;
 }
 
 export interface RecurringPayment {

@@ -63,7 +63,9 @@ export const initDB = () => {
         due_date INTEGER,
         is_paid INTEGER DEFAULT 0,
         contact_name TEXT,
-        created_at INTEGER
+        created_at INTEGER,
+        transactionId INTEGER,
+        FOREIGN KEY (transactionId) REFERENCES transactions (id) ON DELETE SET NULL
       );
 
       CREATE TABLE IF NOT EXISTS recurring_payments (
@@ -109,6 +111,13 @@ export const initDB = () => {
         value TEXT
       );
     `);
+
+    // Migration: Add transactionId to debts if it doesn't exist
+    try {
+        db.execSync('ALTER TABLE debts ADD COLUMN transactionId INTEGER REFERENCES transactions(id) ON DELETE SET NULL;');
+    } catch (e) {
+        // Column probably already exists
+    }
 
     // --- Migrations ---
     try {

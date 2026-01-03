@@ -163,18 +163,24 @@ export const addTransaction = (
   note: string,
   items: Omit<TransactionItem, 'id' | 'transactionId'>[] = [],
   accountId: number | null = null,
-  allocations: { accountId: number; amount: number }[] = []
+  allocations: { accountId: number; amount: number }[] = [],
+  dueInfo?: { amount: number; contactName: string; dueDate: number }
 ): void => {
   db.withTransactionSync(() => {
     let finalAllocations = allocations;
-    // Backward compatibility: if no allocations but accountId exists, treat as single allocation
-    // But we also store accountId in transaction table for single account transactions
     
     const result = db.runSync(
       'INSERT INTO transactions (amount, date, categoryId, note, accountId) VALUES (?, ?, ?, ?, ?)',
       [amount, date, categoryId, note, accountId]
     );
     const transactionId = result.lastInsertRowId;
+
+    if (dueInfo && dueInfo.amount > 0) {
+        db.runSync(
+            'INSERT INTO debts (amount, description, type, due_date, contact_name, created_at, transactionId) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [dueInfo.amount, `Pending balance for transaction: ${note}`, 'borrowed', dueInfo.dueDate, dueInfo.contactName, Date.now(), transactionId]
+        );
+    }
 
     for (const item of items) {
       db.runSync(
@@ -244,6 +250,26 @@ export const deleteTransaction = (id: number): void => {
 };
 
 // --- Debts ---
+export const getTransactionById = (id: number): Transaction | null => {
+    return db.getFirstSync<Transaction>(`
+        SELECT t.*, 
+        c.name as categoryName, c.type as categoryType, c.color as categoryColor, c.icon as categoryIcon,
+        a.name as accountName
+        FROM transactions t
+        LEFT JOIN categories c ON t.categoryId = c.id
+        LEFT JOIN accounts a ON t.accountId = a.id
+        WHERE t.id = ?
+    `, [id]);
+};
+
+export const getTransactionItems = (transactionId: number): TransactionItem[] => {
+    return db.getAllSync<TransactionItem>('SELECT * FROM transaction_items WHERE transactionId = ?', [transactionId]);
+};
+
+export const getDebtById = (id: number): Debt | null => {
+    return db.getFirstSync<Debt>('SELECT * FROM debts WHERE id = ?', [id]);
+};
+
 export const getDebts = (): Debt[] => {
     return db.getAllSync<Debt>('SELECT * FROM debts ORDER BY due_date ASC');
 };

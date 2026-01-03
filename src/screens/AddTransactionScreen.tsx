@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet, Alert, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { TextInput, Button, Chip, Text, Divider, IconButton, useTheme, Card, Surface, SegmentedButtons, Avatar, ProgressBar } from 'react-native-paper';
+import { TextInput, Button, Chip, Text, Divider, IconButton, useTheme, Card, Surface, SegmentedButtons, Avatar, ProgressBar, Switch } from 'react-native-paper';
 import { useStore } from '../store/useStore';
 import { useNavigation } from '@react-navigation/native';
 import { TransactionItem } from '../types';
 import { formatAmount } from '../utils/formatting';
 import { colors } from '../utils/colors';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export const AddTransactionScreen = () => {
     const theme = useTheme();
@@ -17,6 +19,13 @@ export const AddTransactionScreen = () => {
     const [amount, setAmount] = useState('');
     const [note, setNote] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+
+    // Partial/Due state
+    const [isPartial, setIsPartial] = useState(false);
+    const [paidAmount, setPaidAmount] = useState('');
+    const [shopName, setShopName] = useState('');
+    const [dueDate, setDueDate] = useState(new Date());
+    const [showDueDatePicker, setShowDueDatePicker] = useState(false);
     const [selectedAccount, setSelectedAccount] = useState<number | null>(null);
     const [selectedAccounts, setSelectedAccounts] = useState<number[]>([]);
     const [accountAllocations, setAccountAllocations] = useState<{ [key: number]: string }>({});
@@ -66,16 +75,16 @@ export const AddTransactionScreen = () => {
         if (!total || selectedAccounts.length === 0) return;
 
         const count = selectedAccounts.length;
-        const split = Math.floor((total / count) * 100) / 100; // Floor to 2 decimals
+        const split = Math.floor(total / count);
         const newAlloc: { [key: number]: string } = {};
 
         let distributed = 0;
         selectedAccounts.forEach((accId, index) => {
             if (index === count - 1) {
                 // Give the remainder to the last one to ensure exact sum
-                newAlloc[accId] = (total - distributed).toFixed(2);
+                newAlloc[accId] = (total - distributed).toString();
             } else {
-                newAlloc[accId] = split.toFixed(2);
+                newAlloc[accId] = split.toString();
                 distributed += split;
             }
         });
@@ -142,10 +151,26 @@ export const AddTransactionScreen = () => {
         }
 
         const totalAmount = parseFloat(amount);
+        let finalPaidAmount = totalAmount;
+
+        if (isPartial) {
+            finalPaidAmount = parseFloat(paidAmount) || 0;
+            if (finalPaidAmount > totalAmount) {
+                Alert.alert('Error', 'Paid amount cannot be greater than total amount');
+                return;
+            }
+            if (!shopName) {
+                Alert.alert('Error', 'Please enter shop/contact name for the pending bill');
+                return;
+            }
+        }
 
         // Validation for Allocations
         let finalAllocations: { accountId: number; amount: number }[] | undefined = undefined;
         let finalAccountId = selectedAccount;
+
+        // If partial, the transaction amount is the paid amount
+        const transactionAmount = isPartial ? finalPaidAmount : totalAmount;
 
         if (isMultiAccount) {
             if (selectedAccounts.length === 0) {
@@ -159,7 +184,7 @@ export const AddTransactionScreen = () => {
 
             for (const accId of selectedAccounts) {
                 const val = parseFloat(accountAllocations[accId]) || 0;
-                if (val <= 0) {
+                if (val <= 0 && transactionAmount > 0) {
                     Alert.alert('Error', 'Allocation amount must be greater than 0');
                     return;
                 }
@@ -177,36 +202,39 @@ export const AddTransactionScreen = () => {
                 allocs.push({ accountId: accId, amount: val });
             }
 
-            if (Math.abs(allocatedSum - totalAmount) > 0.01) {
-                Alert.alert('Error', `Allocation sum (${allocatedSum}) does not match Total Amount (${totalAmount})`);
+            if (Math.abs(allocatedSum - transactionAmount) > 0.01) {
+                Alert.alert('Error', `Allocated sum (${currency}${allocatedSum}) must match transaction amount (${currency}${transactionAmount})`);
                 return;
             }
-
             finalAllocations = allocs;
-            finalAccountId = null; // Mixed
-        } else {
+            finalAccountId = null;
+        } else if (finalAccountId) {
             // Single Account Check
-            if (!selectedAccount) {
-                Alert.alert('Error', 'Please select an account');
-                return;
-            }
             if (type === 'expense') {
-                const acc = accounts.find(a => a.id === selectedAccount);
-                if (acc && acc.balance < totalAmount) {
+                const acc = accounts.find(a => a.id === finalAccountId);
+                if (acc && acc.balance < transactionAmount) {
                     Alert.alert('Error', `Insufficient balance in ${acc.name}`);
                     return;
                 }
             }
+        } else if (transactionAmount > 0) {
+            Alert.alert('Error', 'Please select an account for the paid amount');
+            return;
         }
 
         addTransaction(
-            totalAmount,
+            transactionAmount,
             Date.now(),
             selectedCategory,
             note,
             items,
             finalAccountId || undefined,
-            finalAllocations
+            finalAllocations,
+            isPartial ? {
+                amount: totalAmount - finalPaidAmount,
+                contactName: shopName,
+                dueDate: dueDate.getTime()
+            } : undefined
         );
         navigation.goBack();
     };
@@ -222,7 +250,7 @@ export const AddTransactionScreen = () => {
     const filteredCategories = categories.filter(c => c.type === type);
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
@@ -369,6 +397,72 @@ export const AddTransactionScreen = () => {
                         </View>
                     </Surface>
 
+                    {/* Partial/Due Toggle (Only for Expense) */}
+                    {type === 'expense' && (
+                        <View style={styles.section}>
+                            <Surface style={styles.partialCard} elevation={1}>
+                                <View style={styles.rowBetween}>
+                                    <View>
+                                        <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>Partial/Pending Bill</Text>
+                                        <Text variant="bodySmall" style={{ color: theme.colors.outline }}>Mark if you're not paying the full amount now</Text>
+                                    </View>
+                                    <Switch value={isPartial} onValueChange={setIsPartial} color={theme.colors.primary} />
+                                </View>
+
+                                {isPartial && (
+                                    <View style={{ marginTop: 16 }}>
+                                        <TextInput
+                                            label="Amount Paid Now"
+                                            value={paidAmount}
+                                            onChangeText={setPaidAmount}
+                                            keyboardType="numeric"
+                                            mode="outlined"
+                                            style={styles.input}
+                                            left={<TextInput.Affix text={currency} />}
+                                        />
+                                        <Text variant="labelSmall" style={{ color: theme.colors.error, marginBottom: 12, marginLeft: 4 }}>
+                                            Remaining Due: {currency}{formatAmount(Math.max(0, (parseFloat(amount) || 0) - (parseFloat(paidAmount) || 0)))}
+                                        </Text>
+
+                                        <TextInput
+                                            label="Shop / Contact Name"
+                                            placeholder="Who do you owe?"
+                                            value={shopName}
+                                            onChangeText={setShopName}
+                                            mode="outlined"
+                                            style={styles.input}
+                                            left={<TextInput.Icon icon="store-outline" />}
+                                        />
+
+                                        <TouchableOpacity onPress={() => setShowDueDatePicker(true)} style={styles.datePicker}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                <MaterialCommunityIcons name="calendar-clock" size={24} color={theme.colors.primary} />
+                                                <View style={{ marginLeft: 12 }}>
+                                                    <Text variant="labelSmall" style={{ color: theme.colors.outline }}>Due Date</Text>
+                                                    <Text variant="bodyLarge">{dueDate.toLocaleDateString()}</Text>
+                                                </View>
+                                            </View>
+                                            <MaterialCommunityIcons name="chevron-right" size={24} color={theme.colors.outline} />
+                                        </TouchableOpacity>
+
+                                        {showDueDatePicker && (
+                                            <DateTimePicker
+                                                value={dueDate}
+                                                mode="date"
+                                                display="default"
+                                                onChange={(event, date) => {
+                                                    setShowDueDatePicker(false);
+                                                    if (date) setDueDate(date);
+                                                }}
+                                                minimumDate={new Date()}
+                                            />
+                                        )}
+                                    </View>
+                                )}
+                            </Surface>
+                        </View>
+                    )}
+
                     {/* Category Selection */}
                     <View style={styles.section}>
                         <Text variant="titleMedium" style={styles.sectionTitle}>Category</Text>
@@ -460,15 +554,17 @@ export const AddTransactionScreen = () => {
                             </Surface>
                         ))}
                     </View>
+                    <View style={styles.footer}>
+                        <Button mode="contained" onPress={handleSave} style={styles.saveButton} contentStyle={{ height: 50 }}>
+                            Save Transaction
+                        </Button>
+                    </View>
+                    <View style={{ height: 40 }}></View>
                 </ScrollView>
             </KeyboardAvoidingView>
             {/* Floating Save Button */}
-            <View style={styles.footer}>
-                <Button mode="contained" onPress={handleSave} style={styles.saveButton} contentStyle={{ height: 50 }}>
-                    Save Transaction
-                </Button>
-            </View>
-        </SafeAreaView>
+
+        </View>
     );
 };
 
@@ -479,8 +575,34 @@ const styles = StyleSheet.create({
     },
     amountCard: { margin: 16, padding: 20, borderRadius: 16, backgroundColor: colors.white, alignItems: 'center' },
     amountInputContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-    amountInput: { backgroundColor: 'transparent', width: 200, textAlign: 'center', height: 60 },
-    section: { paddingHorizontal: 16, marginBottom: 16 },
+    amountInput: {
+        backgroundColor: 'transparent',
+        width: 250,
+        textAlign: 'center',
+        height: 80,
+    },
+    partialCard: {
+        padding: 16,
+        borderRadius: 12,
+        backgroundColor: 'white',
+        borderWidth: 1,
+        borderColor: '#FFE0B2', // Light orange border
+    },
+    datePicker: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 16,
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
+        borderRadius: 8,
+        backgroundColor: '#F9F9F9',
+        marginTop: 8,
+    },
+    section: {
+        paddingHorizontal: 16,
+        marginBottom: 20,
+    },
     sectionTitle: { marginBottom: 10, fontWeight: 'bold' },
     chipContainer: { paddingVertical: 8 },
     categoryItem: { alignItems: 'center', marginRight: 16, width: 70, padding: 5, borderRadius: 10, borderWidth: 1, borderColor: 'transparent' },
@@ -493,10 +615,8 @@ const styles = StyleSheet.create({
     itemInputCard: { marginBottom: 16, backgroundColor: 'white' },
     itemRow: { flexDirection: 'row', justifyContent: 'space-between', padding: 16, backgroundColor: 'white', marginBottom: 8, borderRadius: 12, alignItems: 'center' },
     footer: {
-        padding: 16,
-        backgroundColor: 'white',
-        borderTopWidth: 1,
-        borderTopColor: '#E0E0E0',
+        paddingHorizontal: 16,
+        backgroundColor: 'transparent',
     },
     saveButton: { borderRadius: 25 },
     splitSection: { marginTop: 10, backgroundColor: 'white', padding: 16, borderRadius: 12 },
